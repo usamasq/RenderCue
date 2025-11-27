@@ -2,20 +2,21 @@
 
 **Sequence. Queue. Render.**
 
-RenderCue is a Blender add-on designed to bridge the gap between Scene Management and Batch Rendering. Unlike standard command-line batch rendering, RenderCue provides a visual interface within Blender to queue multiple scenes, override their output settings per-job, and visualize the timing of these jobs using Blender's internal Video Sequence Editor (VSE).
+RenderCue is a powerful Blender add-on that bridges the gap between Scene Management and Batch Rendering. It provides a streamlined visual interface to queue multiple scenes, override their output settings per-job, sync with the Video Sequence Editor (VSE), and execute renders in the background while keeping your UI responsive.
 
 ## Features
 
-- **Visual Queue**: Manage a list of scenes to render.
-- **Per-Job Overrides**: Output Path, Frame Range, Resolution %, Format, Samples
-- **VSE Sync**: Visualize your render queue in the Video Sequence Editor timeline.
-- **Batch Render**: Render all queued jobs sequentially with a single click.
-- **Apply to All**: Copy override settings from one job to all jobs.
-- **Global Settings**: Organize outputs into separate folders or a single directory.
+- **Visual Queue**: Manage a list of scenes to render with drag-and-drop reordering.
+- **Per-Job Overrides**: Customize Output Path, Frame Range, Resolution %, Format, and Samples for each job without changing the original scene settings.
+- **Background Rendering**: Render your queue in a separate process, keeping Blender responsive and providing live progress updates with thumbnail previews.
+- **VSE Sync**: Automatically visualize and sync your render queue to the Video Sequence Editor timeline.
+- **Presets**: Save and load your queue configurations for different workflows.
+- **Batch Actions**: Apply overrides to all jobs with a single click.
+- **Smart Output**: Organize outputs into separate folders or a single directory automatically.
 
 ## Installation
 
-1. Zip the **contents** of the RenderCue folder (not the folder itself).
+1. Download the latest release zip file.
 2. Open Blender (4.2 or later).
 3. Go to **Edit > Preferences > Get Extensions**.
 4. Click the arrow icon (top right) and select **Install from Disk...**.
@@ -25,60 +26,58 @@ RenderCue is a Blender add-on designed to bridge the gap between Scene Managemen
 
 ### Accessing RenderCue
 
-You can access the RenderCue panel in **two places**:
+You can access the RenderCue panel in:
 
-1. **Render Properties** tab (in the Properties panel)
-2. **3D Viewport** sidebar (Press `N` > **RenderCue** tab)
+- **Render Properties** tab (Properties Panel)
+- **3D Viewport** sidebar (Press `N` > **RenderCue** tab)
+- **Video Sequencer** sidebar (Press `N` > **RenderCue** tab)
 
-### 1. Add Scenes to Queue
+### 1. Building Your Queue
 
-- Click **Add Scene** to add the current scene
-- Click **Add All Scenes** to automatically add every scene in your .blend file
+- Click **Add Scene** to add the current scene.
+- Click **Add All Scenes** to automatically populate the queue with every scene in your .blend file.
+- Use the **Up/Down** arrows to reorder jobs.
 
-### 2. View Scene Information
+### 2. Customizing Jobs (Overrides)
 
-The list displays key information for each scene:
+Select any job in the list to access its override settings. These changes apply _only_ to the RenderCue job, leaving your actual scene settings untouched.
 
-- **Scene Name** with icon
-- **Render Engine** icon (Cycles/Eevee)
-- **Resolution** (actual final resolution like "1920x1080", with override icon if modified)
-- **FPS** (frames per second, e.g., "24fps")
-- **Samples** (shown as "S:64" for render quality)
+- **Output**: Set a custom output folder.
+- **Frame Range**: Render a specific range (e.g., 1-100).
+- **Resolution**: Scale resolution (e.g., 50% for test renders).
+- **Format**: Change output format (e.g., PNG, OpenEXR Multilayer, FFMPEG).
+- **Samples**: Override render samples for Cycles or Eevee.
 
-### 3. Configure Per-Job Overrides
+**Pro Tip:** Click the **Duplicate Icon** (⧉) next to any override to apply that setting to ALL jobs in the queue.
 
-Select any job in the list to see its override options:
+### 3. VSE Integration
 
-- **Output Path**: Custom directory for this scene
-- **Frame Range**: Render specific frames (e.g., 1-120)
-- **Resolution %**: Scale down for test renders (e.g., 50%)
-- **Format**: Change file format (PNG, EXR, etc.)
-- **Samples**: Override render samples
+Visualize your render flow before you start:
 
-**Tip:** Click the **duplicate icon** (⧉) next to any override to apply it to ALL jobs in the queue.
+- Click **Sync to VSE** to generate strips in the Video Sequence Editor for all queued jobs.
+- Adjust strip lengths or positions in the VSE, then click **Sync from VSE** to update your RenderCue frame ranges.
 
-### 4. Global Settings
+### 4. Rendering
 
-- **Output Structure**:
-  - _Separate Folders_: Each scene renders to its own subfolder
-  - _Same Folder_: All renders go to one directory
-- **Global Output Path**: Base directory for all renders
+Choose your **Render Mode** in the Global Settings:
 
-### 5. Sync to VSE (Video Sequence Editor)
+#### Background (Non-Blocking) - _Recommended_
 
-Click **Sync to VSE** to visualize your render sequence:
+- Renders in a separate process.
+- **Keeps Blender responsive** so you can continue working.
+- Shows a **Live Progress Bar** with frame stats (Frames: X/Y).
+- Displays a **Live Thumbnail Preview** of the last rendered frame.
 
-- All queued scenes appear as strips in Channel 1
-- Play the timeline to preview the final sequence
-- Great for checking timing before rendering
+#### Foreground (Blocking)
 
-### 6. Batch Render
+- Renders within the current Blender instance.
+- Freezes the UI until completion.
+- Useful for quick, small renders or debugging.
 
-Click **Render Cue** (the large button at the bottom of the panel) to start rendering all jobs sequentially. Progress will be shown in Blender's interface.
+## Support
 
-## Requirements
-
-- Blender 4.2+
+If you find this tool useful, consider supporting its development:
+[**Support on Patreon**](https://www.patreon.com/c/usamasq)
 
 ## License
 

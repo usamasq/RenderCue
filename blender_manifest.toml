@@ -7,7 +7,7 @@ tagline = "Sequence. Queue. Render."
 maintainer = "RenderCue Team"
 type = "add-on"
 license = ["GPL-3.0-or-later"]
-website = "https://github.com/rendercue/rendercue"
+website = "https://github.com/usamasq/RenderCue"
 tags = ["Render", "Sequencer", "Pipeline"]
 
 blender_version_min = "4.2.0"

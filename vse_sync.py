@@ -15,16 +15,18 @@ class RENDERCUE_OT_sync_from_vse(bpy.types.Operator):
             return {'CANCELLED'}
             
         vse = scene.sequence_editor
-        target_channel = 1
+        target_channel = settings.vse_channel
         
         # Find all scene strips in channel 1
         scene_strips = []
-        for strip in vse.sequences_all:
+        # Blender 5.0 compatibility: sequences_all removed, use sequences
+        all_strips = getattr(vse, 'sequences_all', vse.sequences)
+        for strip in all_strips:
             if strip.channel == target_channel and strip.type == 'SCENE':
                 scene_strips.append(strip)
         
         if not scene_strips:
-            self.report({'WARNING'}, "No scene strips found in VSE Channel 1")
+            self.report({'WARNING'}, f"No scene strips found in VSE Channel {target_channel}")
             return {'CANCELLED'}
         
         # Sort strips by start frame

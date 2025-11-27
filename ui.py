@@ -81,6 +81,31 @@ class RenderCuePanelMixin:
         wm = context.window_manager
         settings = context.scene.rendercue
         
+        # Progress Indicator
+        if settings.is_rendering:
+            box = layout.box()
+            box.label(text=settings.progress_message, icon='RENDER_ANIMATION')
+            # Frame Progress
+            if settings.total_frames_to_render > 0:
+                percent = (settings.finished_frames_count / settings.total_frames_to_render) * 100
+                box.label(text=f"Frames: {settings.finished_frames_count} / {settings.total_frames_to_render} ({int(percent)}%)")
+            
+            box.label(text=f"ETR: {settings.etr}", icon='TIME')
+            
+            # Thumbnail
+            if settings.preview_image:
+                col = box.column()
+                col.template_image(settings, "preview_image", image_user=None, compact=True)
+            
+            # Draw a progress bar using a slider
+            row = box.row()
+            row.prop(settings, "current_job_index", text="Job Progress", slider=True)
+            row.enabled = False # Make it read-only
+            
+            # Disable the rest of the UI
+            layout.enabled = False
+            return
+
         # Main List
         row = layout.row()
         row.template_list("RENDER_UL_render_cue_jobs", "", settings, "jobs", settings, "active_job_index")
@@ -100,7 +125,15 @@ class RenderCuePanelMixin:
         layout.separator()
         layout.label(text="Batch Settings:")
         layout.prop(settings, "output_structure")
-        layout.prop(settings, "global_output_path")
+        layout.prop(settings, "render_mode")
+        
+        row = layout.row(align=True)
+        row.prop(settings, "global_output_path")
+        row.operator("rendercue.open_output_folder", icon='EXTERNAL_DRIVE', text="")
+        
+        row = layout.row(align=True)
+        row.operator("rendercue.validate_queue", icon='CHECKMARK', text="Validate")
+        row.menu("RENDERCUE_MT_presets_menu", icon='PRESET', text="Presets")
         
         # Selected Job Settings (Overrides)
         if settings.jobs and settings.active_job_index >= 0 and len(settings.jobs) > settings.active_job_index:
@@ -131,9 +164,7 @@ class RenderCuePanelMixin:
             sub.active = job.override_frame_range
             sub.prop(job, "frame_start")
             sub.prop(job, "frame_end")
-            # Apply to all for frame range is tricky as it has two values. 
-            # We can make a specific operator or just skip for now.
-            # Let's add a specific one for frame range.
+            
             op = row.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
             op.data_path_bool = "override_frame_range"
             op.data_path_val = "frame_range" # Special case
@@ -154,16 +185,50 @@ class RenderCuePanelMixin:
         row.operator("rendercue.sync_vse", icon='SEQUENCE', text="Sync to VSE")
         row.operator("rendercue.sync_from_vse", icon='IMPORT', text="Sync from VSE")
         
+        # VSE Channel Setting
+        row = layout.row()
+        row.prop(settings, "vse_channel")
+        
         layout.separator()
         row = layout.row(align=True)
         row.scale_y = 1.5
         row.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="Render Cue")
+
+class RENDERCUE_MT_presets_menu(bpy.types.Menu):
+    bl_label = "Presets"
+    bl_idname = "RENDERCUE_MT_presets_menu"
+
+    def draw(self, context):
+        layout = self.layout
+        layout.operator("rendercue.save_preset", icon='FILE_TICK')
+        layout.operator("rendercue.load_preset", icon='FILE_FOLDER')
 
 class RENDER_PT_render_cue(RenderCuePanelMixin, bpy.types.Panel):
     bl_idname = "RENDER_PT_render_cue"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "render"
+
+class RENDER_PT_render_cue_dashboard(RenderCuePanelMixin, bpy.types.Panel):
+    bl_label = "Dashboard"
+    bl_idname = "RENDER_PT_render_cue_dashboard"
+    bl_parent_id = "RENDER_PT_render_cue"
+    bl_options = {'DEFAULT_CLOSED'}
+    
+    def draw(self, context):
+        settings = context.scene.rendercue
+        layout = self.layout
+        
+        if settings.is_rendering:
+            box = layout.box()
+            box.label(text="Status: RENDERING", icon='RENDER_ANIMATION')
+            box.prop(settings, "progress_message", text="")
+            
+            row = box.row()
+            row.label(text=f"Job: {settings.current_job_index + 1}/{settings.total_jobs_count}")
+            row.label(text=f"ETR: {settings.etr}")
+        else:
+            layout.label(text="Idle", icon='SLEEP')
 
 class VIEW3D_PT_render_cue(bpy.types.Panel):
     bl_idname = "VIEW3D_PT_render_cue"
@@ -190,12 +255,16 @@ class SEQUENCER_PT_render_cue(bpy.types.Panel):
 def register():
     bpy.utils.register_class(RENDER_UL_render_cue_jobs)
     bpy.utils.register_class(RENDER_PT_render_cue)
+    bpy.utils.register_class(RENDERCUE_MT_presets_menu)
+    bpy.utils.register_class(RENDER_PT_render_cue_dashboard)
     bpy.utils.register_class(VIEW3D_PT_render_cue)
     bpy.utils.register_class(SEQUENCER_PT_render_cue)
 
 def unregister():
     bpy.utils.unregister_class(SEQUENCER_PT_render_cue)
     bpy.utils.unregister_class(VIEW3D_PT_render_cue)
+    bpy.utils.unregister_class(RENDER_PT_render_cue_dashboard)
+    bpy.utils.unregister_class(RENDERCUE_MT_presets_menu)
     bpy.utils.unregister_class(RENDER_PT_render_cue)
     bpy.utils.unregister_class(RENDER_UL_render_cue_jobs)
 

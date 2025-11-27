@@ -16,10 +16,11 @@ class RENDERCUE_OT_sync_vse(bpy.types.Operator):
             
         vse = scene.sequence_editor
         
-        # Clear existing strips in a specific channel (e.g., Channel 1)
-        target_channel = 1
-        # Blender 5.0 uses sequences_all instead of sequences
-        for strip in list(vse.sequences_all):
+        # Clear existing strips in the selected channel
+        target_channel = settings.vse_channel
+        # Blender 5.0 compatibility: sequences_all removed, use sequences
+        strips = getattr(vse, 'sequences_all', vse.sequences)
+        for strip in list(strips):
             if strip.channel == target_channel:
                 vse.sequences.remove(strip)
                 
