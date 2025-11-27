@@ -52,8 +52,6 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                 if self._status_file and os.path.exists(self._status_file):
                     try:
                         with open(self._status_file, 'r') as f:
-                    try:
-                        with open(self._status_file, 'r') as f:
                             status = json.load(f)
                             context.window_manager.rendercue.progress_message = status.get("message", "Rendering...")
                             context.window_manager.rendercue.etr = status.get("etr", "--:--")
