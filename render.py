@@ -131,6 +131,9 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         context.window_manager.rendercue.is_rendering = True
         context.window_manager.rendercue.progress_message = "Starting Background Render..."
         
+        # Track start time
+        self._start_time = time.time()
+        
         wm.modal_handler_add(self)
         self._timer = wm.event_timer_add(1.0, window=context.window)
         return {'RUNNING_MODAL'}
@@ -167,7 +170,24 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
 
         # Desktop Notification
         if prefs.show_notifications:
-            show_toast("RenderCue", "Batch Render Complete!")
+            # Calculate duration
+            duration = time.time() - getattr(self, '_start_time', time.time())
+            hours = int(duration // 3600)
+            minutes = int((duration % 3600) // 60)
+            seconds = int(duration % 60)
+            
+            time_str = ""
+            if hours > 0:
+                time_str += f"{hours}h "
+            if minutes > 0 or hours > 0:
+                time_str += f"{minutes}m "
+            time_str += f"{seconds}s"
+            
+            filename = os.path.basename(bpy.data.filepath) or "Untitled.blend"
+            frames = context.window_manager.rendercue.finished_frames_count
+            
+            msg = f"File: {filename}\nFrames: {frames}\nTime: {time_str}"
+            show_toast("RenderCue Complete", msg)
             
         # Update Status
         if not self._stop: # Only if not cancelled/error

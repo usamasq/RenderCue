@@ -1,11 +1,3 @@
-# RenderCue v1.0 Release Notes
-
-## 🎉 Major Features
-
-### 1. ✅ Global Queue Architecture
-
-**Access your queue from anywhere!**
-
 - **Global Access**: The render queue is now accessible from **any scene** in your project. No need to switch scenes to check your job list.
 - **Persistent Storage**: The queue is saved within your `.blend` file using a robust custom data block. It persists across sessions and reloads.
 

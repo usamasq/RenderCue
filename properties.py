@@ -19,7 +19,6 @@ class RenderCueJob(bpy.types.PropertyGroup):
         items=[
             ('CYCLES', "Cycles", "Cycles Render Engine"),
             ('BLENDER_EEVEE', "Eevee", "Eevee Render Engine"),
-            ('BLENDER_EEVEE_NEXT', "Eevee Next", "Eevee Next Render Engine"),
         ],
         default='CYCLES',
         description="Render Engine to use",
@@ -244,6 +243,12 @@ class RenderCueSettings(bpy.types.PropertyGroup):
     preview_image: bpy.props.PointerProperty(
         type=bpy.types.Image,
         name="Preview",
+        options={'SKIP_SAVE'}
+    )
+    
+    banner_image: bpy.props.PointerProperty(
+        type=bpy.types.Image,
+        name="Banner",
         options={'SKIP_SAVE'}
     )
 

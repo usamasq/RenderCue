@@ -1,15 +1,7 @@
-# RenderCue Installation Troubleshooting
-
-## Issue: "I don't see the Render Cue and Sync to VSE buttons"
-
-### Solution: Reinstall the Addon
-
-1. **In Blender:**
-
-   - Go to **Edit > Preferences > Get Extensions**
-   - Find "RenderCue" in your installed extensions
-   - Click the **X** or **Remove** button
-   - Restart Blender (important!)
+- Go to **Edit > Preferences > Get Extensions**
+- Find "RenderCue" in your installed extensions
+- Click the **X** or **Remove** button
+- Restart Blender (important!)
 
 2. **Create Fresh Zip:**
 

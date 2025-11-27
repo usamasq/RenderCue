@@ -1,3 +1,5 @@
+![RenderCue Banner](RenderCue.jpg)
+
 # RenderCue
 
 **Sequence. Queue. Render.**

@@ -89,8 +89,9 @@ class BackgroundWorker:
         
         # Save Preview Image
         # We save a separate JPEG for the preview to support all formats (including Video)
-        # Use a hidden filename
-        preview_path = os.path.join(os.path.dirname(self.status_path), ".rendercue_preview.jpg")
+        # Use a unique filename with timestamp to force Blender to reload the image
+        timestamp = int(time.time() * 1000)
+        preview_path = os.path.join(os.path.dirname(self.status_path), f".rendercue_preview_{timestamp}.jpg")
         
         # Debug Log
         debug_log_path = os.path.join(os.path.dirname(self.status_path), "worker_debug.log")
@@ -115,6 +116,19 @@ class BackgroundWorker:
                 
                 # Restore
                 scene.render.image_settings.file_format = orig_format
+                
+                # Clean up old previews to save space
+                try:
+                    dir_path = os.path.dirname(self.status_path)
+                    current_name = os.path.basename(preview_path)
+                    for f in os.listdir(dir_path):
+                        if f.startswith(".rendercue_preview_") and f.endswith(".jpg") and f != current_name:
+                            try:
+                                os.remove(os.path.join(dir_path, f))
+                            except:
+                                pass
+                except:
+                    pass
             else:
                 log_debug("Render Result image not found")
                 preview_path = ""

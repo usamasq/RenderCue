@@ -1,4 +1,5 @@
 import bpy
+import os
 
 class RENDER_UL_render_cue_jobs(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -17,8 +18,26 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
         op = row.operator("rendercue.switch_to_job_scene", text="", icon='VIEW3D')
         op.index = index
         
-        # Renderer Info with text
-        r_engine = item.scene.render.engine
+        # Override Indicators (Visual feedback)
+        sub = row.row(align=True)
+        sub.scale_x = 0.8
+        
+        if item.override_output:
+            sub.label(icon='FILE_FOLDER')
+        if item.override_frame_range:
+            sub.label(icon='TIME')
+        if item.override_format:
+            sub.label(icon='IMAGE_DATA')
+        if item.override_view_layer:
+            sub.label(icon='RENDERLAYERS')
+            
+        # Renderer Info
+        # Check for override first
+        if item.override_engine:
+            r_engine = item.render_engine
+        else:
+            r_engine = item.scene.render.engine
+            
         icon_engine = 'SHADING_RENDERED'
         engine_name = r_engine
         
@@ -28,9 +47,6 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
         elif r_engine == 'BLENDER_EEVEE':
             icon_engine = 'LIGHT_SUN'
             engine_name = "Eevee"
-        elif r_engine == 'BLENDER_EEVEE_NEXT':
-            icon_engine = 'LIGHT_SUN'
-            engine_name = "Eevee Next"
             
         row.label(text=engine_name, icon=icon_engine)
         
@@ -49,28 +65,28 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
             row.label(text=f"{final_x}x{final_y}", icon='MODIFIER')
         else:
             row.label(text=f"{final_x}x{final_y}")
-        
-        # FPS
-        fps = item.scene.render.fps
-        row.label(text=f"{fps}fps")
             
         # Samples with clearer label
         samples = 0
-        if r_engine == 'CYCLES':
-            samples = item.scene.cycles.samples
-        elif r_engine in ['BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT']:
-            # Blender 5.0 compatibility: try different property names
-            try:
-                samples = item.scene.eevee.taa_render_samples
-            except AttributeError:
-                # Fallback for Blender 5.0+
+        
+        # Determine samples based on engine (override or scene)
+        if item.override_samples:
+            samples = item.samples
+        else:
+            # Get scene samples
+            if r_engine == 'CYCLES':
+                samples = item.scene.cycles.samples
+            elif r_engine == 'BLENDER_EEVEE':
                 try:
-                    samples = item.scene.eevee.samples
+                    samples = item.scene.eevee.taa_render_samples
                 except AttributeError:
-                    samples = 0
+                    try:
+                        samples = item.scene.eevee.samples
+                    except AttributeError:
+                        samples = 0
         
         if item.override_samples:
-            row.label(text=f"Samples: {item.samples}", icon='MODIFIER')
+            row.label(text=f"Samples: {samples}", icon='MODIFIER')
         else:
             row.label(text=f"Samples: {samples}")
 
@@ -85,6 +101,32 @@ class RenderCuePanelMixin:
         wm = context.window_manager
         settings = context.window_manager.rendercue
         
+        # Banner
+        if not settings.banner_image:
+            # Try to load banner
+            banner_name = "RenderCue.jpg"
+            if banner_name in bpy.data.images:
+                settings.banner_image = bpy.data.images[banner_name]
+            else:
+                addon_dir = os.path.dirname(__file__)
+                banner_path = os.path.join(addon_dir, banner_name)
+                if os.path.exists(banner_path):
+                    try:
+                        img = bpy.data.images.load(banner_path, check_existing=True)
+                        img.name = banner_name
+                        settings.banner_image = img
+                    except:
+                        pass
+        
+        if settings.banner_image:
+            row = layout.row()
+            row.scale_y = 0.5 # Adjust if needed, but template_image handles aspect ratio usually
+            # Use template_ID_preview for a cleaner look without open/new buttons if possible, 
+            # but template_image is standard. compact=True hides some controls.
+            layout.template_image(settings, "banner_image", image_user=None, compact=True)
+            layout.separator()
+        
+        
         # Progress Indicator
         if settings.is_rendering:
             box = layout.box()
@@ -98,16 +140,15 @@ class RenderCuePanelMixin:
             
             # Thumbnail
             if settings.preview_image:
+                box.separator()
+                box.label(text="Last Rendered Frame:", icon='IMAGE_DATA')
                 col = box.column()
-                col.template_image(settings, "preview_image", image_user=None, compact=True)
+                # Use template_ID_preview instead of template_image for dynamic images
+                col.template_ID_preview(settings, "preview_image", rows=4, cols=6)
             
-            # Draw a progress bar using a slider
-            row = box.row()
-            row.prop(settings, "current_job_index", text="Job Progress", slider=True)
-            row.enabled = False # Make it read-only
-            
-            # Control Buttons
-            row = box.row()
+            # Control Buttons - IMPORTANT: Draw these BEFORE disabling layout!
+            box.separator()
+            row = box.row(align=True)
             row.scale_y = 1.5
             
             if settings.is_paused:
@@ -117,8 +158,8 @@ class RenderCuePanelMixin:
                 
             row.operator("rendercue.stop_render", icon='CANCEL', text="Stop")
             
-            # Disable the rest of the UI
-            layout.enabled = False
+            
+            # Return early - don't draw the job queue UI below
             return
 
         # Main List
@@ -212,8 +253,19 @@ class RenderCuePanelMixin:
             # Render Engine
             draw_override_row("override_engine", "render_engine", "Engine", "override_engine", "render_engine")
 
-            # View Layer
-            draw_override_row("override_view_layer", "view_layer", "View Layer", "override_view_layer", "view_layer")
+            # View Layer (Smart Dropdown)
+            if job.scene and len(job.scene.view_layers) > 1:
+                row = col.row(align=True)
+                row.prop(job, "override_view_layer", text="View Layer")
+                
+                sub = row.row(align=True)
+                sub.active = job.override_view_layer
+                # Use prop_search to create a dropdown from the scene's view layers
+                sub.prop_search(job, "view_layer", job.scene, "view_layers", text="")
+                
+                op = row.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+                op.data_path_bool = "override_view_layer"
+                op.data_path_val = "view_layer"
             
         layout.separator()
         row = layout.row()
