@@ -65,7 +65,13 @@ class StateManager:
                 "samples": job.samples,
                 
                 "override_format": job.override_format,
-                "render_format": job.render_format
+                "render_format": job.render_format,
+                
+                "override_engine": job.override_engine,
+                "render_engine": job.render_engine,
+                
+                "override_view_layer": job.override_view_layer,
+                "view_layer": job.view_layer
             }
             data["jobs"].append(job_data)
             
@@ -110,6 +116,12 @@ class StateManager:
                 job.override_format = job_data.get("override_format", False)
                 job.render_format = job_data.get("render_format", 'PNG')
                 
+                job.override_engine = job_data.get("override_engine", False)
+                job.render_engine = job_data.get("render_engine", 'CYCLES')
+                
+                job.override_view_layer = job_data.get("override_view_layer", False)
+                job.view_layer = job_data.get("view_layer", "")
+                
             return True
         except Exception as e:
             print(f"Error loading state: {e}")
@@ -141,7 +153,11 @@ class StateManager:
                 "override_samples": job.override_samples,
                 "samples": job.samples,
                 "override_format": job.override_format,
-                "render_format": job.render_format
+                "render_format": job.render_format,
+                "override_engine": job.override_engine,
+                "render_engine": job.render_engine,
+                "override_view_layer": job.override_view_layer,
+                "view_layer": job.view_layer
             }
             data["jobs"].append(job_data)
             
@@ -185,6 +201,10 @@ class StateManager:
                 job.samples = job_data.get("samples", 128)
                 job.override_format = job_data.get("override_format", False)
                 job.render_format = job_data.get("render_format", 'PNG')
+                job.override_engine = job_data.get("override_engine", False)
+                job.render_engine = job_data.get("render_engine", 'CYCLES')
+                job.override_view_layer = job_data.get("override_view_layer", False)
+                job.view_layer = job_data.get("view_layer", "")
         except Exception as e:
             print(f"Error loading queue from text: {e}")
 

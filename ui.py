@@ -128,83 +128,13 @@ class RenderCuePanelMixin:
         # Side buttons for list
         col = row.column(align=True)
         col.operator("rendercue.add_job", icon='ADD', text="")
-        col.operator("rendercue.remove_job", icon='REMOVE', text="")
-        col.separator()
-        col.operator("rendercue.move_job", icon='TRIA_UP', text="").direction = 'UP'
-        col.operator("rendercue.move_job", icon='TRIA_DOWN', text="").direction = 'DOWN'
-        
-        # Add All Scenes Helper
-        layout.operator("rendercue.populate_all", icon='SCENE_DATA', text="Add All Scenes")
-        
-        # Global Settings
-        layout.separator()
-        layout.label(text="Batch Settings:")
-        layout.prop(settings, "output_structure")
-        
-        row = layout.row(align=True)
-        row.prop(settings, "global_output_path")
-        row.operator("rendercue.open_output_folder", icon='EXTERNAL_DRIVE', text="")
-        
-        row = layout.row(align=True)
-        row.operator("rendercue.validate_queue", icon='CHECKMARK', text="Validate")
-        row.operator("rendercue.sync_vse", icon='SEQUENCE', text="Sync to VSE")
-        if "RenderCue VSE" in bpy.data.scenes:
-            row.operator("rendercue.open_vse_scene", icon='SCENE_DATA', text="Open VSE")
-        row.menu("RENDERCUE_MT_presets_menu", icon='PRESET', text="Presets")
-        
-        # Selected Job Settings (Overrides)
-        if settings.jobs and settings.active_job_index >= 0 and len(settings.jobs) > settings.active_job_index:
-            job = settings.jobs[settings.active_job_index]
-            box = layout.box()
-            box.label(text=f"Overrides: {job.scene.name if job.scene else 'None'}")
-            
-            # Helper to draw override with "Apply to All"
-            def draw_override(prop_bool, prop_val, name, data_path_bool, data_path_val):
-                row = box.row(align=True)
-                row.prop(job, prop_bool, text="")
-                sub = row.row(align=True)
-                sub.active = getattr(job, prop_bool)
-                sub.prop(job, prop_val)
-                
-                # Apply to All Button
-                op = row.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
-                op.data_path_bool = data_path_bool
-                op.data_path_val = data_path_val
-
-            # Output
-            draw_override("override_output", "output_path", "Output", "override_output", "output_path")
-            
-            # Frame Range
-            row = box.row(align=True)
-            row.prop(job, "override_frame_range", text="")
-            sub = row.row(align=True)
-            sub.active = job.override_frame_range
-            sub.prop(job, "frame_start")
-            sub.prop(job, "frame_end")
-            
-            op = row.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
-            op.data_path_bool = "override_frame_range"
-            op.data_path_val = "frame_range" # Special case
-
-            # Resolution
-            draw_override("override_resolution", "resolution_scale", "Resolution", "override_resolution", "resolution_scale")
-            
-            # Format
-            draw_override("override_format", "render_format", "Format", "override_format", "render_format")
-            
-            # Samples
-            draw_override("override_samples", "samples", "Samples", "override_samples", "samples")
-            
-        row = layout.row(align=True)
-        row.scale_y = 1.5
-        row.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="Render Cue")
-
-class RENDERCUE_MT_presets_menu(bpy.types.Menu):
-    bl_label = "Presets"
-    bl_idname = "RENDERCUE_MT_presets_menu"
-
     def draw(self, context):
         layout = self.layout
+        layout.label(text="Quick Settings")
+        layout.operator("rendercue.quick_preset", text="Draft (50%, Low Samples)").preset_type = 'DRAFT'
+        layout.operator("rendercue.quick_preset", text="Production (100%, High Samples)").preset_type = 'PRODUCTION'
+        layout.separator()
+        layout.label(text="Queue Presets")
         layout.operator("rendercue.save_preset", icon='FILE_TICK')
         layout.operator("rendercue.load_preset", icon='FILE_FOLDER')
 

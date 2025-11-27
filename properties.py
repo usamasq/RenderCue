@@ -8,6 +8,37 @@ class RenderCueJob(bpy.types.PropertyGroup):
     )
     
     # Overrides
+    override_engine: bpy.props.BoolProperty(
+        name="Override Engine", 
+        default=False,
+        description="Enable to render with a specific engine",
+        options={'SKIP_SAVE'}
+    )
+    render_engine: bpy.props.EnumProperty(
+        name="Engine",
+        items=[
+            ('CYCLES', "Cycles", "Cycles Render Engine"),
+            ('BLENDER_EEVEE', "Eevee", "Eevee Render Engine"),
+            ('BLENDER_EEVEE_NEXT', "Eevee Next", "Eevee Next Render Engine"),
+        ],
+        default='CYCLES',
+        description="Render Engine to use",
+        options={'SKIP_SAVE'}
+    )
+    
+    override_view_layer: bpy.props.BoolProperty(
+        name="Override View Layer", 
+        default=False,
+        description="Enable to render a specific view layer",
+        options={'SKIP_SAVE'}
+    )
+    view_layer: bpy.props.StringProperty(
+        name="View Layer",
+        default="",
+        description="Name of the View Layer to render (leave empty for active)",
+        options={'SKIP_SAVE'}
+    )
+
     override_frame_range: bpy.props.BoolProperty(
         name="Override Frame Range", 
         default=False,

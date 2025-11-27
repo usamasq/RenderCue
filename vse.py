@@ -23,13 +23,51 @@ class RENDERCUE_OT_sync_vse(bpy.types.Operator):
         # 2. Switch to VSE Scene
         context.window.scene = vse_scene
         
-        # 3. Switch to Video Editing Workspace (if available)
-        # Try to find a workspace with "Video Editing" in the name
+        # 3. Switch to Video Editing Workspace
         vse_workspace = None
         for ws in bpy.data.workspaces:
             if "Video Editing" in ws.name:
                 vse_workspace = ws
                 break
+        
+        if not vse_workspace:
+            # Create a new workspace by duplicating the current one
+            current_ws = context.workspace
+            bpy.ops.workspace.duplicate()
+            
+            # Get the new workspace (it should be active)
+            # We use bpy.context to ensure we get the fresh active workspace
+            vse_workspace = bpy.context.workspace
+            
+            # Safety check: ensure we are not renaming the original workspace
+            if vse_workspace != current_ws:
+                vse_workspace.name = "Video Editing"
+            else:
+                self.report({'WARNING'}, "Failed to create new workspace, using current one")
+            
+            # Setup the workspace layout for VSE
+            # Find the largest area and switch it to SEQUENCE_EDITOR
+            screen = context.window.screen
+            max_area = None
+            max_size = 0
+            
+            for area in screen.areas:
+                size = area.width * area.height
+                if size > max_size:
+                    max_size = size
+                    max_area = area
+            
+            if max_area:
+                max_area.type = 'SEQUENCE_EDITOR'
+                
+                # Configure the Sequencer
+                for space in max_area.spaces:
+                    if space.type == 'SEQUENCE_EDITOR':
+                        space.view_type = 'SEQUENCER_PREVIEW'
+                        space.show_region_ui = True # Show N-panel
+                        # Ensure it follows the current scene (not pinned)
+                        space.pin_id = None 
+                        break
         
         if vse_workspace:
             context.window.workspace = vse_workspace
@@ -102,6 +140,33 @@ class RENDERCUE_OT_sync_vse(bpy.types.Operator):
         
         # Set Total Duration
         vse_scene.frame_end = current_frame - 1
+        
+        # Frame All (View All)
+        # We need to find the VSE area again as we might have switched context or it might be a new workspace
+        screen = context.window.screen
+        for area in screen.areas:
+            if area.type == 'SEQUENCE_EDITOR':
+                # Override context to run view_all
+                ctx = context.copy()
+                ctx['window'] = context.window
+                ctx['screen'] = screen
+                ctx['area'] = area
+                for region in area.regions:
+                    if region.type == 'WINDOW':
+                        ctx['region'] = region
+                        break
+                
+                try:
+                    with context.temp_override(**ctx):
+                        # Maximize the area to hide others (Clean Workspace)
+                        # We check if it's not already maximized (though hard to detect reliably via API, duplicate starts fresh)
+                        bpy.ops.screen.screen_full_area(use_hide_panels=False)
+                        
+                        bpy.ops.sequencer.view_all()
+                        bpy.ops.sequencer.view_all_preview()
+                except:
+                    pass
+                break
         
         self.report({'INFO'}, "Synced to 'RenderCue VSE' scene")
         return {'FINISHED'}

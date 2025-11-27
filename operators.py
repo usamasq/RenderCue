@@ -223,6 +223,45 @@ class RENDERCUE_OT_load_preset(bpy.types.Operator):
             self.report({'ERROR'}, "Failed to load preset")
             return {'CANCELLED'}
 
+class RENDERCUE_OT_quick_preset(bpy.types.Operator):
+    bl_idname = "rendercue.quick_preset"
+    bl_label = "Quick Preset"
+    bl_description = "Apply a quick quality preset to all jobs"
+    
+    preset_type: bpy.props.EnumProperty(
+        items=[
+            ('DRAFT', "Draft (50%, Low Samples)", "Fast render for checking animation"),
+            ('PRODUCTION', "Production (100%, High Samples)", "Final quality render")
+        ]
+    )
+    
+    def execute(self, context):
+        settings = context.window_manager.rendercue
+        
+        if not settings.jobs:
+            self.report({'WARNING'}, "Queue is empty")
+            return {'CANCELLED'}
+            
+        for job in settings.jobs:
+            if self.preset_type == 'DRAFT':
+                # Resolution
+                job.override_resolution = True
+                job.resolution_scale = 50
+                # Samples
+                job.override_samples = True
+                job.samples = 32
+                
+            elif self.preset_type == 'PRODUCTION':
+                # Resolution
+                job.override_resolution = True
+                job.resolution_scale = 100
+                # Samples
+                job.override_samples = True
+                job.samples = 1024 # Or whatever is reasonable for "High"
+                
+        self.report({'INFO'}, f"Applied '{self.preset_type}' preset to all jobs")
+        return {'FINISHED'}
+
 class RENDERCUE_OT_switch_to_job_scene(bpy.types.Operator):
     bl_idname = "rendercue.switch_to_job_scene"
     bl_label = "Switch to Scene"
@@ -239,6 +278,24 @@ class RENDERCUE_OT_switch_to_job_scene(bpy.types.Operator):
         if job.scene:
             context.window.scene = job.scene
             settings.active_job_index = self.index
+            
+            # Auto-switch to Layout workspace
+            layout_ws = None
+            # Try to find "Layout" or "General"
+            for ws in bpy.data.workspaces:
+                if ws.name == "Layout" or ws.name == "General":
+                    layout_ws = ws
+                    break
+            
+            # If not found, just pick the first one that isn't Video Editing
+            if not layout_ws:
+                for ws in bpy.data.workspaces:
+                    if "Video Editing" not in ws.name:
+                        layout_ws = ws
+                        break
+            
+            if layout_ws:
+                context.window.workspace = layout_ws
             
         return {'FINISHED'}
 
@@ -298,11 +355,76 @@ class RENDERCUE_OT_open_vse_scene(bpy.types.Operator):
         if scene:
             context.window.scene = scene
             
-            # Try to switch to Video Editing workspace
+            # Switch to Video Editing Workspace
+            vse_workspace = None
             for ws in bpy.data.workspaces:
                 if "Video Editing" in ws.name:
-                    context.window.workspace = ws
+                    vse_workspace = ws
                     break
+            
+            if not vse_workspace:
+                # Create a new workspace by duplicating the current one
+                current_ws = context.workspace
+                bpy.ops.workspace.duplicate()
+                
+                # Get the new workspace (it should be active)
+                vse_workspace = bpy.context.workspace
+                
+                # Safety check: ensure we are not renaming the original workspace
+                if vse_workspace != current_ws:
+                    vse_workspace.name = "Video Editing"
+                else:
+                    # Fallback or error handling
+                    pass
+                
+                # Setup the workspace layout for VSE
+                screen = context.window.screen
+                max_area = None
+                max_size = 0
+                
+                for area in screen.areas:
+                    size = area.width * area.height
+                    if size > max_size:
+                        max_size = size
+                        max_area = area
+                
+                if max_area:
+                    max_area.type = 'SEQUENCE_EDITOR'
+                    
+                    # Configure the Sequencer
+                    for space in max_area.spaces:
+                        if space.type == 'SEQUENCE_EDITOR':
+                            space.view_type = 'SEQUENCER_PREVIEW'
+                            space.show_region_ui = True # Show N-panel
+                            space.pin_id = None
+                            break
+            
+            if vse_workspace:
+                context.window.workspace = vse_workspace
+                
+                # Frame All (View All)
+                screen = context.window.screen
+                for area in screen.areas:
+                    if area.type == 'SEQUENCE_EDITOR':
+                        ctx = context.copy()
+                        ctx['window'] = context.window
+                        ctx['screen'] = screen
+                        ctx['area'] = area
+                        for region in area.regions:
+                            if region.type == 'WINDOW':
+                                ctx['region'] = region
+                                break
+                        
+                        try:
+                            with context.temp_override(**ctx):
+                                # Maximize the area to hide others (Clean Workspace)
+                                bpy.ops.screen.screen_full_area(use_hide_panels=False)
+                                
+                                bpy.ops.sequencer.view_all()
+                                bpy.ops.sequencer.view_all_preview()
+                        except:
+                            pass
+                        break
         return {'FINISHED'}
 
 def register():
@@ -315,6 +437,7 @@ def register():
     bpy.utils.register_class(RENDERCUE_OT_validate_queue)
     bpy.utils.register_class(RENDERCUE_OT_save_preset)
     bpy.utils.register_class(RENDERCUE_OT_load_preset)
+    bpy.utils.register_class(RENDERCUE_OT_quick_preset)
     bpy.utils.register_class(RENDERCUE_OT_switch_to_job_scene)
     bpy.utils.register_class(RENDERCUE_OT_stop_render)
     bpy.utils.register_class(RENDERCUE_OT_pause_render)
@@ -328,6 +451,7 @@ def unregister():
         RENDERCUE_OT_pause_render,
         RENDERCUE_OT_stop_render,
         RENDERCUE_OT_switch_to_job_scene,
+        RENDERCUE_OT_quick_preset,
         RENDERCUE_OT_load_preset,
         RENDERCUE_OT_save_preset,
         RENDERCUE_OT_validate_queue,

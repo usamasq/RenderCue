@@ -198,6 +198,15 @@ class BackgroundWorker:
             scene.render.filepath = filepath
             
             # Other Overrides
+            if job.get("override_engine"):
+                scene.render.engine = job["render_engine"]
+                
+            if job.get("override_view_layer"):
+                vl_name = job["view_layer"]
+                if vl_name and vl_name in scene.view_layers:
+                    for vl in scene.view_layers:
+                        vl.use = (vl.name == vl_name)
+
             if job["override_resolution"]:
                 scene.render.resolution_percentage = job["resolution_scale"]
                 
