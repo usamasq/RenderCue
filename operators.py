@@ -76,7 +76,8 @@ class RENDERCUE_OT_populate_all(bpy.types.Operator):
         existing_scenes = {job.scene for job in settings.jobs if job.scene}
         
         for scene in bpy.data.scenes:
-            if scene not in existing_scenes:
+            # Exclude existing scenes and the special VSE scene
+            if scene not in existing_scenes and scene.name != "RenderCue VSE":
                 job = settings.jobs.add()
                 job.scene = scene
                 
@@ -283,6 +284,27 @@ class RENDERCUE_OT_resume_render(bpy.types.Operator):
                 pass
         return {'FINISHED'}
 
+class RENDERCUE_OT_open_vse_scene(bpy.types.Operator):
+    bl_idname = "rendercue.open_vse_scene"
+    bl_label = "Open VSE Scene"
+    bl_description = "Switch to the RenderCue VSE scene"
+    
+    @classmethod
+    def poll(cls, context):
+        return "RenderCue VSE" in bpy.data.scenes
+    
+    def execute(self, context):
+        scene = bpy.data.scenes.get("RenderCue VSE")
+        if scene:
+            context.window.scene = scene
+            
+            # Try to switch to Video Editing workspace
+            for ws in bpy.data.workspaces:
+                if "Video Editing" in ws.name:
+                    context.window.workspace = ws
+                    break
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(RENDERCUE_OT_add_job)
     bpy.utils.register_class(RENDERCUE_OT_remove_job)
@@ -297,9 +319,11 @@ def register():
     bpy.utils.register_class(RENDERCUE_OT_stop_render)
     bpy.utils.register_class(RENDERCUE_OT_pause_render)
     bpy.utils.register_class(RENDERCUE_OT_resume_render)
+    bpy.utils.register_class(RENDERCUE_OT_open_vse_scene)
 
 def unregister():
     for cls in (
+        RENDERCUE_OT_open_vse_scene,
         RENDERCUE_OT_resume_render,
         RENDERCUE_OT_pause_render,
         RENDERCUE_OT_stop_render,

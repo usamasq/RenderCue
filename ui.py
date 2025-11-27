@@ -148,6 +148,8 @@ class RenderCuePanelMixin:
         row = layout.row(align=True)
         row.operator("rendercue.validate_queue", icon='CHECKMARK', text="Validate")
         row.operator("rendercue.sync_vse", icon='SEQUENCE', text="Sync to VSE")
+        if "RenderCue VSE" in bpy.data.scenes:
+            row.operator("rendercue.open_vse_scene", icon='SCENE_DATA', text="Open VSE")
         row.menu("RENDERCUE_MT_presets_menu", icon='PRESET', text="Presets")
         
         # Selected Job Settings (Overrides)
