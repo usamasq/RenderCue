@@ -260,8 +260,6 @@ def register():
     bpy.utils.register_class(RENDERCUE_OT_open_output_folder)
     bpy.utils.register_class(RENDERCUE_OT_validate_queue)
     bpy.utils.register_class(RENDERCUE_OT_save_preset)
-    bpy.utils.register_class(RENDERCUE_OT_save_preset)
-    bpy.utils.register_class(RENDERCUE_OT_save_preset)
     bpy.utils.register_class(RENDERCUE_OT_load_preset)
     bpy.utils.register_class(RENDERCUE_OT_switch_to_job_scene)
     bpy.utils.register_class(RENDERCUE_OT_stop_render)
