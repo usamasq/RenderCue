@@ -39,7 +39,7 @@ class StateManager:
     @staticmethod
     def save_state(context, filepath):
         """Save the current render queue state to JSON"""
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         data = {
             "timestamp": time.time(),
             "global_output_path": settings.global_output_path,
@@ -82,7 +82,7 @@ class StateManager:
             with open(filepath, 'r') as f:
                 data = json.load(f)
                 
-            settings = context.scene.rendercue
+            settings = context.window_manager.rendercue
             settings.jobs.clear()
             
             settings.global_output_path = data.get("global_output_path", settings.global_output_path)
@@ -113,4 +113,98 @@ class StateManager:
             return True
         except Exception as e:
             print(f"Error loading state: {e}")
+            return True
+        except Exception as e:
+            print(f"Error loading state: {e}")
             return False
+
+    @staticmethod
+    def save_queue_to_text(context):
+        """Save queue to internal Text Block"""
+        settings = context.window_manager.rendercue
+        data = {
+            "global_output_path": settings.global_output_path,
+            "output_structure": settings.output_structure,
+            "jobs": []
+        }
+        
+        for job in settings.jobs:
+            job_data = {
+                "scene_name": job.scene.name if job.scene else None,
+                "override_frame_range": job.override_frame_range,
+                "frame_start": job.frame_start,
+                "frame_end": job.frame_end,
+                "override_output": job.override_output,
+                "output_path": job.output_path,
+                "override_resolution": job.override_resolution,
+                "resolution_scale": job.resolution_scale,
+                "override_samples": job.override_samples,
+                "samples": job.samples,
+                "override_format": job.override_format,
+                "render_format": job.render_format
+            }
+            data["jobs"].append(job_data)
+            
+        text_name = ".rendercue_data"
+        text = bpy.data.texts.get(text_name)
+        if not text:
+            text = bpy.data.texts.new(text_name)
+            
+        text.clear()
+        text.write(json.dumps(data, indent=4))
+
+    @staticmethod
+    def load_queue_from_text(context):
+        """Load queue from internal Text Block"""
+        text_name = ".rendercue_data"
+        text = bpy.data.texts.get(text_name)
+        if not text:
+            return
+            
+        try:
+            data = json.loads(text.as_string())
+            settings = context.window_manager.rendercue
+            settings.jobs.clear()
+            
+            settings.global_output_path = data.get("global_output_path", settings.global_output_path)
+            settings.output_structure = data.get("output_structure", settings.output_structure)
+            
+            for job_data in data.get("jobs", []):
+                job = settings.jobs.add()
+                if job_data.get("scene_name"):
+                    job.scene = bpy.data.scenes.get(job_data["scene_name"])
+                    
+                job.override_frame_range = job_data.get("override_frame_range", False)
+                job.frame_start = job_data.get("frame_start", 1)
+                job.frame_end = job_data.get("frame_end", 250)
+                job.override_output = job_data.get("override_output", False)
+                job.output_path = job_data.get("output_path", "//")
+                job.override_resolution = job_data.get("override_resolution", False)
+                job.resolution_scale = job_data.get("resolution_scale", 100)
+                job.override_samples = job_data.get("override_samples", False)
+                job.samples = job_data.get("samples", 128)
+                job.override_format = job_data.get("override_format", False)
+                job.render_format = job_data.get("render_format", 'PNG')
+        except Exception as e:
+            print(f"Error loading queue from text: {e}")
+
+from bpy.app.handlers import persistent
+
+@persistent
+def save_pre_handler(dummy):
+    StateManager.save_queue_to_text(bpy.context)
+
+@persistent
+def load_post_handler(dummy):
+    # Use a timer to delay loading slightly to ensure context is ready
+    bpy.app.timers.register(lambda: StateManager.load_queue_from_text(bpy.context) or None, first_interval=0.1)
+
+def register():
+    bpy.app.handlers.save_pre.append(save_pre_handler)
+    bpy.app.handlers.load_post.append(load_post_handler)
+
+def unregister():
+    if save_pre_handler in bpy.app.handlers.save_pre:
+        bpy.app.handlers.save_pre.remove(save_pre_handler)
+    if load_post_handler in bpy.app.handlers.load_post:
+        bpy.app.handlers.load_post.remove(load_post_handler)

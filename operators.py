@@ -10,7 +10,7 @@ class RENDERCUE_OT_add_job(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         
         job = settings.jobs.add()
         job.scene = context.scene
@@ -27,10 +27,10 @@ class RENDERCUE_OT_remove_job(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.scene.rendercue.jobs and context.scene.rendercue.active_job_index >= 0
+        return context.window_manager.rendercue.jobs and context.window_manager.rendercue.active_job_index >= 0
 
     def execute(self, context):
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         
         settings.jobs.remove(settings.active_job_index)
         
@@ -49,10 +49,10 @@ class RENDERCUE_OT_move_job(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.scene.rendercue.jobs and context.scene.rendercue.active_job_index >= 0
+        return context.window_manager.rendercue.jobs and context.window_manager.rendercue.active_job_index >= 0
 
     def execute(self, context):
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         idx = settings.active_job_index
         
         if self.direction == 'UP' and idx > 0:
@@ -71,7 +71,7 @@ class RENDERCUE_OT_populate_all(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         
         existing_scenes = {job.scene for job in settings.jobs if job.scene}
         
@@ -93,10 +93,10 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        return context.scene.rendercue.jobs and context.scene.rendercue.active_job_index >= 0
+        return context.window_manager.rendercue.jobs and context.window_manager.rendercue.active_job_index >= 0
 
     def execute(self, context):
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         
         if not settings.jobs:
             return {'CANCELLED'}
@@ -133,7 +133,7 @@ class RENDERCUE_OT_open_output_folder(bpy.types.Operator):
     bl_description = "Open the global output directory in your operating system's file explorer"
     
     def execute(self, context):
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         path = bpy.path.abspath(settings.global_output_path)
         
         if not os.path.exists(path):
@@ -149,7 +149,7 @@ class RENDERCUE_OT_validate_queue(bpy.types.Operator):
     bl_description = "Check the queue for common errors (missing cameras, invalid paths, unsaved files) before rendering"
     
     def execute(self, context):
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         errors = []
         
         # Check Output Path
@@ -222,6 +222,35 @@ class RENDERCUE_OT_load_preset(bpy.types.Operator):
             self.report({'ERROR'}, "Failed to load preset")
             return {'CANCELLED'}
 
+class RENDERCUE_OT_switch_to_job_scene(bpy.types.Operator):
+    bl_idname = "rendercue.switch_to_job_scene"
+    bl_label = "Switch to Scene"
+    bl_description = "Switch the current window to this job's scene"
+    
+    index: bpy.props.IntProperty()
+    
+    def execute(self, context):
+        settings = context.window_manager.rendercue
+        if self.index < 0 or self.index >= len(settings.jobs):
+            return {'CANCELLED'}
+            
+        job = settings.jobs[self.index]
+        if job.scene:
+            context.window.scene = job.scene
+            settings.active_job_index = self.index
+            
+        return {'FINISHED'}
+
+class RENDERCUE_OT_stop_render(bpy.types.Operator):
+    bl_idname = "rendercue.stop_render"
+    bl_label = "Stop Render"
+    bl_description = "Stop the current render process"
+    
+    def execute(self, context):
+        context.window_manager.rendercue.stop_requested = True
+        self.report({'INFO'}, "Stopping render...")
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(RENDERCUE_OT_add_job)
     bpy.utils.register_class(RENDERCUE_OT_remove_job)
@@ -231,9 +260,15 @@ def register():
     bpy.utils.register_class(RENDERCUE_OT_open_output_folder)
     bpy.utils.register_class(RENDERCUE_OT_validate_queue)
     bpy.utils.register_class(RENDERCUE_OT_save_preset)
+    bpy.utils.register_class(RENDERCUE_OT_save_preset)
+    bpy.utils.register_class(RENDERCUE_OT_save_preset)
     bpy.utils.register_class(RENDERCUE_OT_load_preset)
+    bpy.utils.register_class(RENDERCUE_OT_switch_to_job_scene)
+    bpy.utils.register_class(RENDERCUE_OT_stop_render)
 
 def unregister():
+    bpy.utils.unregister_class(RENDERCUE_OT_stop_render)
+    bpy.utils.unregister_class(RENDERCUE_OT_switch_to_job_scene)
     bpy.utils.unregister_class(RENDERCUE_OT_load_preset)
     bpy.utils.unregister_class(RENDERCUE_OT_save_preset)
     bpy.utils.unregister_class(RENDERCUE_OT_validate_queue)

@@ -6,10 +6,13 @@ RenderCue is a powerful Blender add-on that bridges the gap between Scene Manage
 
 ## Features
 
+- **Global Queue**: Access and manage your render queue from any scene in your project.
 - **Visual Queue**: Manage a list of scenes to render with drag-and-drop reordering.
 - **Per-Job Overrides**: Customize Output Path, Frame Range, Resolution %, Format, and Samples for each job without changing the original scene settings.
-- **Background Rendering**: Render your queue in a separate process, keeping Blender responsive and providing live progress updates with thumbnail previews.
-- **VSE Sync**: Automatically visualize and sync your render queue to the Video Sequence Editor timeline.
+- **Background Rendering**: Render your queue in a separate process, keeping Blender responsive and providing live progress updates.
+- **Status Bar Integration**: Monitor render progress directly in Blender's status bar.
+- **Desktop Notifications**: Get native system notifications when renders complete or fail.
+- **VSE Sync**: Automatically visualize your render queue to the Video Sequence Editor timeline.
 - **Presets**: Save and load your queue configurations for different workflows.
 - **Batch Actions**: Apply overrides to all jobs with a single click.
 - **Smart Output**: Organize outputs into separate folders or a single directory automatically.
@@ -55,7 +58,6 @@ Select any job in the list to access its override settings. These changes apply 
 Visualize your render flow before you start:
 
 - Click **Sync to VSE** to generate strips in the Video Sequence Editor for all queued jobs.
-- Adjust strip lengths or positions in the VSE, then click **Sync from VSE** to update your RenderCue frame ranges.
 
 ### 4. Rendering
 
@@ -72,7 +74,16 @@ Choose your **Render Mode** in the Global Settings:
 
 - Renders within the current Blender instance.
 - Freezes the UI until completion.
+- Freezes the UI until completion.
 - Useful for quick, small renders or debugging.
+
+### 5. Notifications
+
+RenderCue can notify you when a batch render completes or fails:
+
+- **Desktop Notifications**: Enable in **Preferences > Add-ons > RenderCue** to receive system toasts.
+- **Sound**: Enable "Play Sound on Finish" for an audible alert.
+- **Webhook**: Configure a URL to receive a POST request upon completion (useful for Discord/Slack bots).
 
 ## Support
 

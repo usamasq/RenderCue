@@ -5,7 +5,6 @@ from . import operators
 from . import vse
 from . import render
 from . import preferences
-from . import vse_sync
 from . import updater
 
 bl_info = {
@@ -28,10 +27,8 @@ def register():
     vse.register()
     render.register()
     preferences.register()
-    vse_sync.register()
 
 def unregister():
-    vse_sync.unregister()
     preferences.unregister()
     render.unregister()
     vse.unregister()

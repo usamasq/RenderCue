@@ -2,10 +2,6 @@ import bpy
 import sys
 import json
 import os
-import bpy
-import sys
-import json
-import os
 import time
 import argparse
 
@@ -95,6 +91,16 @@ class BackgroundWorker:
         # We save a separate JPEG for the preview to support all formats (including Video)
         # Use a hidden filename
         preview_path = os.path.join(os.path.dirname(self.status_path), ".rendercue_preview.jpg")
+        
+        # Debug Log
+        debug_log_path = os.path.join(os.path.dirname(self.status_path), "worker_debug.log")
+        def log_debug(msg):
+            try:
+                with open(debug_log_path, "a") as f:
+                    f.write(f"{time.ctime()}: {msg}\n")
+            except:
+                pass
+
         try:
             if 'Render Result' in bpy.data.images:
                 # Store original settings
@@ -105,12 +111,15 @@ class BackgroundWorker:
                 
                 # Save
                 bpy.data.images['Render Result'].save_render(filepath=preview_path)
+                log_debug(f"Saved preview to {preview_path}")
                 
                 # Restore
                 scene.render.image_settings.file_format = orig_format
             else:
+                log_debug("Render Result image not found")
                 preview_path = ""
         except Exception as e:
+            log_debug(f"Could not save preview: {e}")
             print(f"Could not save preview: {e}")
             preview_path = ""
 

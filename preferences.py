@@ -27,6 +27,12 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         description="Enter a Discord or Slack Webhook URL to receive notifications when renders complete or fail",
         default=""
     )
+
+    show_notifications: bpy.props.BoolProperty(
+        name="Show Desktop Notifications",
+        description="Show a system notification when a render batch completes or fails",
+        default=True
+    )
     
     check_updates_on_startup: bpy.props.BoolProperty(
         name="Check Updates on Startup",
@@ -62,6 +68,7 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         
         layout.separator()
         layout.label(text="Notifications:")
+        layout.prop(self, "show_notifications")
         layout.prop(self, "webhook_url")
         
         layout.separator()

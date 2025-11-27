@@ -7,7 +7,7 @@ class RENDERCUE_OT_sync_vse(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         
         # Ensure we are in a scene that has a VSE
         scene = context.scene
@@ -21,7 +21,14 @@ class RENDERCUE_OT_sync_vse(bpy.types.Operator):
         
         # We must use vse.sequences for modification (adding/removing)
         # vse.sequences_all is read-only or does not support new_scene/remove
-        seq_collection = vse.sequences
+        if hasattr(vse, "sequences"):
+            seq_collection = vse.sequences
+        elif hasattr(vse, "strips"):
+            seq_collection = vse.strips
+        else:
+            print(f"[RenderCue] VSE Attributes: {dir(vse)}")
+            self.report({'ERROR'}, "Could not find VSE sequences collection (API mismatch)")
+            return {'CANCELLED'}
             
         for strip in list(seq_collection):
             if strip.channel == target_channel:

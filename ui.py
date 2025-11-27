@@ -13,6 +13,10 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
         # Scene Name
         row.label(text=item.scene.name, icon='SCENE_DATA')
         
+        # Switch Scene Button
+        op = row.operator("rendercue.switch_to_job_scene", text="", icon='VIEW3D')
+        op.index = index
+        
         # Renderer Info with text
         r_engine = item.scene.render.engine
         icon_engine = 'SHADING_RENDERED'
@@ -79,7 +83,7 @@ class RenderCuePanelMixin:
     def draw(self, context):
         layout = self.layout
         wm = context.window_manager
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         
         # Progress Indicator
         if settings.is_rendering:
@@ -101,6 +105,11 @@ class RenderCuePanelMixin:
             row = box.row()
             row.prop(settings, "current_job_index", text="Job Progress", slider=True)
             row.enabled = False # Make it read-only
+            
+            # Stop Button
+            row = box.row()
+            row.scale_y = 1.5
+            row.operator("rendercue.stop_render", icon='CANCEL', text="Stop Render")
             
             # Disable the rest of the UI
             layout.enabled = False
@@ -175,21 +184,6 @@ class RenderCuePanelMixin:
             # Format
             draw_override("override_format", "render_format", "Format", "override_format", "render_format")
             
-            # Samples
-            draw_override("override_samples", "samples", "Samples", "override_samples", "samples")
-
-        # Actions
-        layout.separator()
-        layout.label(text="VSE Integration:")
-        row = layout.row(align=True)
-        row.operator("rendercue.sync_vse", icon='SEQUENCE', text="Sync to VSE")
-        row.operator("rendercue.sync_from_vse", icon='IMPORT', text="Sync from VSE")
-        
-        # VSE Channel Setting
-        row = layout.row()
-        row.prop(settings, "vse_channel")
-        
-        layout.separator()
         row = layout.row(align=True)
         row.scale_y = 1.5
         row.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="Render Cue")
@@ -216,7 +210,7 @@ class RENDER_PT_render_cue_dashboard(RenderCuePanelMixin, bpy.types.Panel):
     bl_options = {'DEFAULT_CLOSED'}
     
     def draw(self, context):
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         layout = self.layout
         
         if settings.is_rendering:
@@ -228,7 +222,23 @@ class RENDER_PT_render_cue_dashboard(RenderCuePanelMixin, bpy.types.Panel):
             row.label(text=f"Job: {settings.current_job_index + 1}/{settings.total_jobs_count}")
             row.label(text=f"ETR: {settings.etr}")
         else:
-            layout.label(text="Idle", icon='SLEEP')
+            # Status Indicator
+            if settings.last_render_status != 'NONE':
+                icon = 'INFO'
+                if settings.last_render_status == 'SUCCESS':
+                    icon = 'CHECKMARK'
+                elif settings.last_render_status == 'FAILED':
+                    icon = 'ERROR'
+                elif settings.last_render_status == 'CANCELLED':
+                    icon = 'CANCEL'
+                
+                box = layout.box()
+                row = box.row()
+                row.label(text=settings.last_render_message, icon=icon)
+                # Clear button
+                op = row.operator("rendercue.clear_status", text="", icon='X')
+            else:
+                layout.label(text="Idle", icon='SLEEP')
 
 class VIEW3D_PT_render_cue(bpy.types.Panel):
     bl_idname = "VIEW3D_PT_render_cue"
@@ -241,6 +251,16 @@ class VIEW3D_PT_render_cue(bpy.types.Panel):
         # Use the same draw method from the mixin
         RenderCuePanelMixin.draw(self, context)
 
+class RENDERCUE_OT_clear_status(bpy.types.Operator):
+    bl_idname = "rendercue.clear_status"
+    bl_label = "Clear Status"
+    bl_description = "Clear the last render status message"
+    
+    def execute(self, context):
+        context.window_manager.rendercue.last_render_status = 'NONE'
+        context.window_manager.rendercue.last_render_message = ""
+        return {'FINISHED'}
+
 class SEQUENCER_PT_render_cue(bpy.types.Panel):
     bl_idname = "SEQUENCER_PT_render_cue"
     bl_label = "RenderCue"
@@ -252,15 +272,29 @@ class SEQUENCER_PT_render_cue(bpy.types.Panel):
         # Use the same draw method from the mixin
         RenderCuePanelMixin.draw(self, context)
 
+def draw_status_bar(self, context):
+    settings = context.window_manager.rendercue
+    if settings.is_rendering:
+        self.layout.label(text=f"RenderCue: {settings.progress_message} | ETR: {settings.etr}", icon='RENDER_ANIMATION')
+
 def register():
     bpy.utils.register_class(RENDER_UL_render_cue_jobs)
     bpy.utils.register_class(RENDER_PT_render_cue)
     bpy.utils.register_class(RENDERCUE_MT_presets_menu)
     bpy.utils.register_class(RENDER_PT_render_cue_dashboard)
     bpy.utils.register_class(VIEW3D_PT_render_cue)
+    # bpy.utils.register_class(VIEW3D_PT_render_cue) # Duplicate removed
     bpy.utils.register_class(SEQUENCER_PT_render_cue)
+    bpy.utils.register_class(RENDERCUE_OT_clear_status)
+    
+    # Register Status Bar
+    bpy.types.WindowManager.draw_status.append(draw_status_bar)
 
 def unregister():
+    # Unregister Status Bar
+    bpy.types.WindowManager.draw_status.remove(draw_status_bar)
+    
+    bpy.utils.unregister_class(RENDERCUE_OT_clear_status)
     bpy.utils.unregister_class(SEQUENCER_PT_render_cue)
     bpy.utils.unregister_class(VIEW3D_PT_render_cue)
     bpy.utils.unregister_class(RENDER_PT_render_cue_dashboard)

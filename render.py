@@ -5,7 +5,8 @@ import json
 import subprocess
 import sys
 from .core import StateManager, RenderCueLogger
-from .notifications import send_webhook
+from .core import StateManager, RenderCueLogger
+from .notifications import send_webhook, show_toast
 
 class RENDERCUE_OT_batch_render(bpy.types.Operator):
     bl_idname = "rendercue.batch_render"
@@ -28,6 +29,11 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
 
     def modal(self, context, event):
         if event.type == 'TIMER':
+            # Check for Stop Request
+            if context.window_manager.rendercue.stop_requested:
+                self._stop = True
+                context.window_manager.rendercue.stop_requested = False # Reset flag
+                
             if self._stop:
                 if self._background_process:
                     self._background_process.kill()
@@ -46,20 +52,29 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                 if self._status_file and os.path.exists(self._status_file):
                     try:
                         with open(self._status_file, 'r') as f:
+                    try:
+                        with open(self._status_file, 'r') as f:
                             status = json.load(f)
-                            context.scene.rendercue.progress_message = status.get("message", "Rendering...")
-                            context.scene.rendercue.etr = status.get("etr", "--:--")
-                            context.scene.rendercue.current_job_index = status.get("job_index", 0)
-                            context.scene.rendercue.finished_frames_count = status.get("finished_frames", 0)
-                            context.scene.rendercue.total_frames_to_render = status.get("total_frames", 0)
+                            context.window_manager.rendercue.progress_message = status.get("message", "Rendering...")
+                            context.window_manager.rendercue.etr = status.get("etr", "--:--")
+                            context.window_manager.rendercue.current_job_index = status.get("job_index", 0)
+                            context.window_manager.rendercue.finished_frames_count = status.get("finished_frames", 0)
+                            context.window_manager.rendercue.total_frames_to_render = status.get("total_frames", 0)
                             last_frame = status.get("last_frame", "")
-                            context.scene.rendercue.last_rendered_frame = last_frame
+                            context.window_manager.rendercue.last_rendered_frame = last_frame
                             
                             if last_frame:
                                 self.update_preview(context, last_frame)
                             
                             if status.get("error"):
                                 self.report({'ERROR'}, status["error"])
+                                context.window_manager.rendercue.last_render_status = 'FAILED'
+                                context.window_manager.rendercue.last_render_message = f"Error: {status['error']}"
+                                
+                                prefs = context.preferences.addons[__package__].preferences
+                                if prefs.show_notifications:
+                                    show_toast("RenderCue Error", status['error'])
+                                    
                                 self._stop = True
                     except:
                         pass
@@ -79,7 +94,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             
             # Check if we have more jobs
             wm = context.window_manager
-            if self._job_index < len(context.scene.rendercue.jobs):
+            if self._job_index < len(context.window_manager.rendercue.jobs):
                 self.start_next_job(context)
             else:
                 self.finish(context)
@@ -89,12 +104,12 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
 
     def execute(self, context):
         wm = context.window_manager
-        if not context.scene.rendercue.jobs:
+        if not context.window_manager.rendercue.jobs:
             self.report({'WARNING'}, "Queue is empty")
             return {'CANCELLED'}
             
         # Check Render Mode
-        render_mode = context.scene.rendercue.render_mode
+        render_mode = context.window_manager.rendercue.render_mode
         
         if render_mode == 'BACKGROUND':
             if not bpy.data.is_saved:
@@ -124,8 +139,8 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             
             self._background_process = subprocess.Popen(cmd)
             
-            context.scene.rendercue.is_rendering = True
-            context.scene.rendercue.progress_message = "Starting Background Render..."
+            context.window_manager.rendercue.is_rendering = True
+            context.window_manager.rendercue.progress_message = "Starting Background Render..."
             
             wm.modal_handler_add(self)
             self._timer = wm.event_timer_add(1.0, window=context.window)
@@ -137,20 +152,24 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         self._stop = False
         self._original_settings = {}
         self._current_job_scene = None
-        self._total_jobs = len(context.scene.rendercue.jobs)
+        self._total_jobs = len(context.window_manager.rendercue.jobs)
+        
+        # Reset Status
+        context.window_manager.rendercue.last_render_status = 'NONE'
+        context.window_manager.rendercue.last_render_message = ""
         
         # Update UI State
-        context.scene.rendercue.is_rendering = True
-        context.scene.rendercue.total_jobs_count = self._total_jobs
-        context.scene.rendercue.current_job_index = 0
-        context.scene.rendercue.progress_message = "Starting Batch Render..."
-        context.scene.rendercue.start_time = time.time()
-        context.scene.rendercue.finished_frames_count = 0
-        context.scene.rendercue.etr = "Calculating..."
+        context.window_manager.rendercue.is_rendering = True
+        context.window_manager.rendercue.total_jobs_count = self._total_jobs
+        context.window_manager.rendercue.current_job_index = 0
+        context.window_manager.rendercue.progress_message = "Starting Batch Render..."
+        context.window_manager.rendercue.start_time = time.time()
+        context.window_manager.rendercue.finished_frames_count = 0
+        context.window_manager.rendercue.etr = "Calculating..."
         
         # Calculate total frames (approximate)
         self._total_frames_to_render = 0
-        for job in context.scene.rendercue.jobs:
+        for job in context.window_manager.rendercue.jobs:
             if job.scene:
                 start = job.scene.frame_start
                 end = job.scene.frame_end
@@ -159,7 +178,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                     end = job.frame_end
                 self._total_frames_to_render += (end - start + 1)
         
-        context.scene.rendercue.total_frames_to_render = self._total_frames_to_render
+        context.window_manager.rendercue.total_frames_to_render = self._total_frames_to_render
         
         # Setup progress bar
         wm.progress_begin(0, self._total_jobs)
@@ -179,7 +198,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
 
     def start_next_job(self, context):
         wm = context.window_manager
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         job = settings.jobs[self._job_index]
         
         if not job.scene:
@@ -381,6 +400,13 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         self._stop = True
         scene.rendercue.is_rendering = False
         scene.rendercue.progress_message = "Cancelled"
+        
+        scene.rendercue.last_render_status = 'CANCELLED'
+        scene.rendercue.last_render_message = "Render Cancelled by User"
+        
+        prefs = bpy.context.preferences.addons[__package__].preferences
+        if prefs.show_notifications:
+            show_toast("RenderCue", "Batch Render Cancelled")
 
     def finish(self, context):
         wm = context.window_manager
@@ -407,9 +433,9 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         self.report({'INFO'}, f"Batch Render Complete: {self._job_index}/{self._total_jobs} scenes rendered")
         
         # Reset UI State
-        context.scene.rendercue.is_rendering = False
-        context.scene.rendercue.progress_message = "Done"
-        context.scene.rendercue.etr = "--:--"
+        context.window_manager.rendercue.is_rendering = False
+        context.window_manager.rendercue.progress_message = "Done"
+        context.window_manager.rendercue.etr = "--:--"
         
         # Sound Notification
         prefs = context.preferences.addons[__package__].preferences
@@ -424,11 +450,20 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         if prefs.webhook_url:
             send_webhook(prefs.webhook_url, "Batch Render Completed Successfully!")
 
+        # Desktop Notification
+        if prefs.show_notifications:
+            show_toast("RenderCue", f"Batch Render Complete! ({self._total_jobs} scenes)")
+            
+        # Update Status
+        if not self._stop: # Only if not cancelled/error
+            context.window_manager.rendercue.last_render_status = 'SUCCESS'
+            context.window_manager.rendercue.last_render_message = f"Finished {self._total_jobs} scenes successfully"
+
     def update_preview(self, context, filepath):
         if not filepath or not os.path.exists(filepath):
             return
             
-        settings = context.scene.rendercue
+        settings = context.window_manager.rendercue
         image_name = "RenderCue Preview"
         
         img = bpy.data.images.get(image_name)
