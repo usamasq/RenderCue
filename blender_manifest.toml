@@ -1,0 +1,21 @@
+schema_version = "1.0.0"
+
+id = "rendercue"
+version = "1.0.0"
+name = "RenderCue"
+tagline = "Sequence. Queue. Render."
+maintainer = "RenderCue Team"
+type = "add-on"
+license = ["GPL-3.0-or-later"]
+website = "https://github.com/rendercue/rendercue"
+tags = ["Render", "Sequencer", "Pipeline"]
+
+blender_version_min = "4.2.0"
+
+# Permissions
+[permissions]
+files = "all" # Needed for saving renders to arbitrary paths
+network = "optional" # For checking updates if implemented later
+
+[build]
+paths = ["."]

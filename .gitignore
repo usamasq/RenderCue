@@ -1,0 +1,11 @@
+__pycache__/
+*.pyc
+.git/
+.vscode/
+.idea/
+build/
+dist/
+*.zip
+*.blend
+*.blend1
+render_cue_output/
