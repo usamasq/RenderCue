@@ -102,29 +102,32 @@ class RenderCuePanelMixin:
         settings = context.window_manager.rendercue
         
         # Banner
-        if not settings.banner_image:
-            # Try to load banner
-            banner_name = "RenderCue.jpg"
-            if banner_name in bpy.data.images:
-                settings.banner_image = bpy.data.images[banner_name]
-            else:
-                addon_dir = os.path.dirname(__file__)
-                banner_path = os.path.join(addon_dir, banner_name)
-                if os.path.exists(banner_path):
-                    try:
-                        img = bpy.data.images.load(banner_path, check_existing=True)
-                        img.name = banner_name
-                        settings.banner_image = img
-                    except:
-                        pass
-        
-        if settings.banner_image:
-            row = layout.row()
-            row.scale_y = 0.5 # Adjust if needed, but template_image handles aspect ratio usually
-            # Use template_ID_preview for a cleaner look without open/new buttons if possible, 
-            # but template_image is standard. compact=True hides some controls.
-            layout.template_image(settings, "banner_image", image_user=None, compact=True)
-            layout.separator()
+        try:
+            if hasattr(settings, "banner_image"):
+                if not settings.banner_image:
+                    # Try to load banner
+                    banner_name = "RenderCue.jpg"
+                    if banner_name in bpy.data.images:
+                        settings.banner_image = bpy.data.images[banner_name]
+                    else:
+                        addon_dir = os.path.dirname(__file__)
+                        banner_path = os.path.join(addon_dir, banner_name)
+                        if os.path.exists(banner_path):
+                            try:
+                                img = bpy.data.images.load(banner_path, check_existing=True)
+                                img.name = banner_name
+                                settings.banner_image = img
+                            except:
+                                pass
+            
+                if settings.banner_image:
+                    row = layout.row()
+                    row.scale_y = 0.5 
+                    layout.template_image(settings, "banner_image", image_user=None, compact=True)
+                    layout.separator()
+        except Exception as e:
+            # If banner fails, just ignore it so the rest of the UI still draws
+            print(f"RenderCue Banner Error: {e}")
         
         
         # Progress Indicator
