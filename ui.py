@@ -128,6 +128,112 @@ class RenderCuePanelMixin:
         # Side buttons for list
         col = row.column(align=True)
         col.operator("rendercue.add_job", icon='ADD', text="")
+        col.operator("rendercue.remove_job", icon='REMOVE', text="")
+        col.separator()
+        col.operator("rendercue.move_job", icon='TRIA_UP', text="").direction = 'UP'
+        col.operator("rendercue.move_job", icon='TRIA_DOWN', text="").direction = 'DOWN'
+        
+        # Queue Tools
+        row = layout.row(align=True)
+        row.scale_y = 1.2
+        row.operator("rendercue.populate_all", icon='SCENE_DATA', text="Add All Scenes")
+        row.menu("RENDERCUE_MT_presets_menu", icon='PRESET', text="Presets")
+        
+        layout.separator()
+        
+        # Batch Settings Group
+        box = layout.box()
+        box.label(text="Batch Settings", icon='PREFERENCES')
+        col = box.column(align=True)
+        col.use_property_split = True
+        col.use_property_decorate = False
+        
+        col.prop(settings, "output_structure", text="Structure")
+        
+        row = col.row(align=True)
+        row.prop(settings, "global_output_path", text="Output Path")
+        row.operator("rendercue.open_output_folder", icon='EXTERNAL_DRIVE', text="")
+        
+        # VSE Integration
+        layout.separator()
+        row = layout.row()
+        row.scale_y = 1.2
+        
+        if "RenderCue VSE" in bpy.data.scenes:
+            row.operator("rendercue.open_vse_scene", icon='SCENE_DATA', text="Open VSE")
+        else:
+            row.operator("rendercue.sync_vse", icon='SEQUENCE', text="Sync to VSE")
+        
+        # Selected Job Settings (Overrides)
+        if settings.jobs and settings.active_job_index >= 0 and len(settings.jobs) > settings.active_job_index:
+            job = settings.jobs[settings.active_job_index]
+            layout.separator()
+            box = layout.box()
+            
+            # Header
+            row = box.row()
+            row.label(text=f"Overrides: {job.scene.name if job.scene else 'None'}", icon='MODIFIER')
+            
+            # Use a cleaner layout for overrides
+            col = box.column(align=True)
+            col.use_property_split = False
+            col.use_property_decorate = False
+            
+            # Helper to draw override with "Apply to All"
+            def draw_override_row(prop_bool, prop_val, name, data_path_bool, data_path_val):
+                row = col.row(align=True)
+                # Checkbox
+                row.prop(job, prop_bool, text=name)
+                
+                # Value (only if enabled)
+                sub = row.row(align=True)
+                sub.active = getattr(job, prop_bool)
+                sub.prop(job, prop_val, text="")
+                
+                # Apply to All Button
+                op = row.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+                op.data_path_bool = data_path_bool
+                op.data_path_val = data_path_val
+
+            # Output
+            draw_override_row("override_output", "output_path", "Output", "override_output", "output_path")
+            
+            # Frame Range (Special handling)
+            row = col.row(align=True)
+            row.prop(job, "override_frame_range", text="Frame Range")
+            sub = row.row(align=True)
+            sub.active = job.override_frame_range
+            sub.prop(job, "frame_start", text="Start")
+            sub.prop(job, "frame_end", text="End")
+            
+            op = row.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+            op.data_path_bool = "override_frame_range"
+            op.data_path_val = "frame_range"
+
+            # Resolution
+            draw_override_row("override_resolution", "resolution_scale", "Resolution %", "override_resolution", "resolution_scale")
+            
+            # Format
+            draw_override_row("override_format", "render_format", "Format", "override_format", "render_format")
+            
+            # Samples
+            draw_override_row("override_samples", "samples", "Samples", "override_samples", "samples")
+
+            # Render Engine
+            draw_override_row("override_engine", "render_engine", "Engine", "override_engine", "render_engine")
+
+            # View Layer
+            draw_override_row("override_view_layer", "view_layer", "View Layer", "override_view_layer", "view_layer")
+            
+        layout.separator()
+        row = layout.row()
+        row.scale_y = 2.0 # Make Render button very prominent
+        row.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="Render Cue")
+
+class RENDERCUE_MT_presets_menu(bpy.types.Menu):
+    bl_label = "Presets"
+    bl_idname = "RENDERCUE_MT_presets_menu"
+
     def draw(self, context):
         layout = self.layout
         layout.label(text="Quick Settings")

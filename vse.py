@@ -66,7 +66,10 @@ class RENDERCUE_OT_sync_vse(bpy.types.Operator):
                         space.view_type = 'SEQUENCER_PREVIEW'
                         space.show_region_ui = True # Show N-panel
                         # Ensure it follows the current scene (not pinned)
-                        space.pin_id = None 
+                        try:
+                            space.pin_id = None 
+                        except AttributeError:
+                            pass
                         break
         
         if vse_workspace:
