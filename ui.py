@@ -106,10 +106,16 @@ class RenderCuePanelMixin:
             row.prop(settings, "current_job_index", text="Job Progress", slider=True)
             row.enabled = False # Make it read-only
             
-            # Stop Button
+            # Control Buttons
             row = box.row()
             row.scale_y = 1.5
-            row.operator("rendercue.stop_render", icon='CANCEL', text="Stop Render")
+            
+            if settings.is_paused:
+                row.operator("rendercue.resume_render", icon='PLAY', text="Resume")
+            else:
+                row.operator("rendercue.pause_render", icon='PAUSE', text="Pause")
+                
+            row.operator("rendercue.stop_render", icon='CANCEL', text="Stop")
             
             # Disable the rest of the UI
             layout.enabled = False
@@ -134,7 +140,6 @@ class RenderCuePanelMixin:
         layout.separator()
         layout.label(text="Batch Settings:")
         layout.prop(settings, "output_structure")
-        layout.prop(settings, "render_mode")
         
         row = layout.row(align=True)
         row.prop(settings, "global_output_path")
@@ -142,6 +147,7 @@ class RenderCuePanelMixin:
         
         row = layout.row(align=True)
         row.operator("rendercue.validate_queue", icon='CHECKMARK', text="Validate")
+        row.operator("rendercue.sync_vse", icon='SEQUENCE', text="Sync to VSE")
         row.menu("RENDERCUE_MT_presets_menu", icon='PRESET', text="Presets")
         
         # Selected Job Settings (Overrides)
@@ -183,6 +189,9 @@ class RenderCuePanelMixin:
             
             # Format
             draw_override("override_format", "render_format", "Format", "override_format", "render_format")
+            
+            # Samples
+            draw_override("override_samples", "samples", "Samples", "override_samples", "samples")
             
         row = layout.row(align=True)
         row.scale_y = 1.5
@@ -288,17 +297,26 @@ def register():
     bpy.utils.register_class(RENDERCUE_OT_clear_status)
     
     # Register Status Bar
-    bpy.types.WindowManager.draw_status.append(draw_status_bar)
+    bpy.types.STATUSBAR_HT_header.append(draw_status_bar)
 
 def unregister():
     # Unregister Status Bar
-    bpy.types.WindowManager.draw_status.remove(draw_status_bar)
+    try:
+        bpy.types.STATUSBAR_HT_header.remove(draw_status_bar)
+    except (AttributeError, ValueError):
+        pass
     
-    bpy.utils.unregister_class(RENDERCUE_OT_clear_status)
-    bpy.utils.unregister_class(SEQUENCER_PT_render_cue)
-    bpy.utils.unregister_class(VIEW3D_PT_render_cue)
-    bpy.utils.unregister_class(RENDER_PT_render_cue_dashboard)
-    bpy.utils.unregister_class(RENDERCUE_MT_presets_menu)
-    bpy.utils.unregister_class(RENDER_PT_render_cue)
-    bpy.utils.unregister_class(RENDER_UL_render_cue_jobs)
+    for cls in (
+        RENDERCUE_OT_clear_status,
+        SEQUENCER_PT_render_cue,
+        VIEW3D_PT_render_cue,
+        RENDER_PT_render_cue_dashboard,
+        RENDERCUE_MT_presets_menu,
+        RENDER_PT_render_cue,
+        RENDER_UL_render_cue_jobs,
+    ):
+        try:
+            bpy.utils.unregister_class(cls)
+        except RuntimeError:
+            pass
 

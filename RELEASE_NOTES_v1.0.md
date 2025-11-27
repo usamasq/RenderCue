@@ -9,7 +9,16 @@
 - **Global Access**: The render queue is now accessible from **any scene** in your project. No need to switch scenes to check your job list.
 - **Persistent Storage**: The queue is saved within your `.blend` file using a robust custom data block. It persists across sessions and reloads.
 
-### 2. ✅ Desktop Notifications
+### 2. ✅ Background Rendering Only
+
+**Streamlined for performance!**
+
+- **Non-Blocking**: All renders are now performed in the background, keeping Blender responsive.
+- **Live Progress**: Track job progress, frame counts, and ETR directly in the panel.
+- **Live Preview**: See a thumbnail of the last rendered frame in real-time.
+- **Controls**: Pause, Resume, and Stop renders at any time.
+
+### 3. ✅ Desktop Notifications
 
 **Get notified when your render is done!**
 
@@ -17,14 +26,14 @@
 - **Sound Alerts**: Optional sound notification on completion.
 - **Webhooks**: Send completion status to a URL (e.g., Discord/Slack).
 
-### 3. ✅ Status Bar Integration
+### 4. ✅ Status Bar Integration
 
 **Monitor progress without the panel!**
 
 - **Live Updates**: Render progress (Job X/Y, Frame %, ETR) is displayed directly in Blender's bottom status bar.
 - **Always Visible**: Keep track of renders while working in other editors (Shading, Modeling, etc.).
 
-### 4. ✅ VSE Panel Access
+### 5. ✅ VSE Panel Access
 
 RenderCue panel now available in **Video Sequence Editor**!
 
@@ -58,6 +67,7 @@ RenderCue panel now available in **Video Sequence Editor**!
 ### v1.0.0 (Initial Release)
 
 - ✅ Global Queue (WindowManager based)
+- ✅ Background Rendering (Pause/Resume/Stop)
 - ✅ Desktop Notifications & Webhooks
 - ✅ Status Bar Integration
 - ✅ VSE panel access
@@ -79,7 +89,7 @@ RenderCue panel now available in **Video Sequence Editor**!
 1. **Add scenes** → Click "Add Scene" or "Add All Scenes"
 2. **Configure** → Set overrides (resolution, samples, etc.)
 3. **Visualize** → Click "Sync to VSE" to preview
-4. **Render** → Click "Render Cue" (Background recommended)
+4. **Render** → Click "Render Cue" (Background)
 
 ---
 
@@ -96,6 +106,8 @@ RenderCue panel now available in **Video Sequence Editor**!
 - `preferences.py` - Addon settings page
 - `notifications.py` - Notification utilities
 - `core.py` - Persistence logic
+- `render.py` - Background render logic
+- `worker.py` - Background process script
 
 ---
 

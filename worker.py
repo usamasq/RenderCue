@@ -126,6 +126,17 @@ class BackgroundWorker:
         msg = f"Rendering {self.current_job_index + 1}/{self.total_jobs}: {scene.name} (Frame {scene.frame_current})"
         self.log_status(msg, etr=etr, last_frame=preview_path)
 
+    def on_render_pre(self, scene, depsgraph=None):
+        # Check for Pause
+        pause_file = os.path.join(os.path.dirname(self.status_path), "rendercue_pause.signal")
+        if os.path.exists(pause_file):
+            self.log_status("Paused", etr="Paused")
+            print("Render Paused...")
+            while os.path.exists(pause_file):
+                time.sleep(1)
+            print("Render Resumed")
+            self.log_status("Resuming...", etr="Calculating...")
+
     def run(self):
         if not self.load_manifest():
             return
@@ -135,8 +146,9 @@ class BackgroundWorker:
         self.calculate_total_frames()
         self.start_time = time.time()
         
-        # Register Handler
+        # Register Handlers
         bpy.app.handlers.render_post.append(self.on_render_post)
+        bpy.app.handlers.render_pre.append(self.on_render_pre)
         
         global_output = self.manifest.get("global_output_path", "//")
         output_structure = self.manifest.get("output_structure", "SEPARATE")

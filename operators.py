@@ -251,6 +251,38 @@ class RENDERCUE_OT_stop_render(bpy.types.Operator):
         self.report({'INFO'}, "Stopping render...")
         return {'FINISHED'}
 
+class RENDERCUE_OT_pause_render(bpy.types.Operator):
+    bl_idname = "rendercue.pause_render"
+    bl_label = "Pause Render"
+    bl_description = "Pause the current render process"
+    
+    def execute(self, context):
+        context.window_manager.rendercue.is_paused = True
+        # Create pause signal file
+        pause_file = os.path.join(bpy.app.tempdir, "rendercue_pause.signal")
+        try:
+            with open(pause_file, 'w') as f:
+                f.write("PAUSE")
+        except:
+            pass
+        return {'FINISHED'}
+
+class RENDERCUE_OT_resume_render(bpy.types.Operator):
+    bl_idname = "rendercue.resume_render"
+    bl_label = "Resume Render"
+    bl_description = "Resume the current render process"
+    
+    def execute(self, context):
+        context.window_manager.rendercue.is_paused = False
+        # Remove pause signal file
+        pause_file = os.path.join(bpy.app.tempdir, "rendercue_pause.signal")
+        if os.path.exists(pause_file):
+            try:
+                os.remove(pause_file)
+            except:
+                pass
+        return {'FINISHED'}
+
 def register():
     bpy.utils.register_class(RENDERCUE_OT_add_job)
     bpy.utils.register_class(RENDERCUE_OT_remove_job)
@@ -263,16 +295,26 @@ def register():
     bpy.utils.register_class(RENDERCUE_OT_load_preset)
     bpy.utils.register_class(RENDERCUE_OT_switch_to_job_scene)
     bpy.utils.register_class(RENDERCUE_OT_stop_render)
+    bpy.utils.register_class(RENDERCUE_OT_pause_render)
+    bpy.utils.register_class(RENDERCUE_OT_resume_render)
 
 def unregister():
-    bpy.utils.unregister_class(RENDERCUE_OT_stop_render)
-    bpy.utils.unregister_class(RENDERCUE_OT_switch_to_job_scene)
-    bpy.utils.unregister_class(RENDERCUE_OT_load_preset)
-    bpy.utils.unregister_class(RENDERCUE_OT_save_preset)
-    bpy.utils.unregister_class(RENDERCUE_OT_validate_queue)
-    bpy.utils.unregister_class(RENDERCUE_OT_open_output_folder)
-    bpy.utils.unregister_class(RENDERCUE_OT_apply_override_to_all)
-    bpy.utils.unregister_class(RENDERCUE_OT_populate_all)
-    bpy.utils.unregister_class(RENDERCUE_OT_move_job)
-    bpy.utils.unregister_class(RENDERCUE_OT_remove_job)
-    bpy.utils.unregister_class(RENDERCUE_OT_add_job)
+    for cls in (
+        RENDERCUE_OT_resume_render,
+        RENDERCUE_OT_pause_render,
+        RENDERCUE_OT_stop_render,
+        RENDERCUE_OT_switch_to_job_scene,
+        RENDERCUE_OT_load_preset,
+        RENDERCUE_OT_save_preset,
+        RENDERCUE_OT_validate_queue,
+        RENDERCUE_OT_open_output_folder,
+        RENDERCUE_OT_apply_override_to_all,
+        RENDERCUE_OT_populate_all,
+        RENDERCUE_OT_move_job,
+        RENDERCUE_OT_remove_job,
+        RENDERCUE_OT_add_job,
+    ):
+        try:
+            bpy.utils.unregister_class(cls)
+        except RuntimeError:
+            pass

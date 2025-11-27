@@ -61,21 +61,18 @@ Visualize your render flow before you start:
 
 ### 4. Rendering
 
-Choose your **Render Mode** in the Global Settings:
+RenderCue performs all renders in the **background**, keeping your Blender UI responsive.
 
-#### Background (Non-Blocking) - _Recommended_
+1.  **Start Render**: Click the **Render Cue** button in the panel.
+2.  **Progress**: The panel will update with the current job, frame progress, and an estimated time remaining (ETR).
+3.  **Preview**: A preview of the last rendered frame is displayed in the panel.
+4.  **Controls**:
+    - **Pause**: Temporarily pause the render process (finishes current frame first).
+    - **Resume**: Continue rendering from where it left off.
+    - **Stop**: Cancel the render process immediately.
 
-- Renders in a separate process.
-- **Keeps Blender responsive** so you can continue working.
-- Shows a **Live Progress Bar** with frame stats (Frames: X/Y).
-- Displays a **Live Thumbnail Preview** of the last rendered frame.
-
-#### Foreground (Blocking)
-
-- Renders within the current Blender instance.
-- Freezes the UI until completion.
-- Freezes the UI until completion.
-- Useful for quick, small renders or debugging.
+> [!NOTE]
+> Closing Blender while a render is in progress will terminate the background render process.
 
 ### 5. Notifications
 

@@ -124,16 +124,7 @@ class RenderCueSettings(bpy.types.PropertyGroup):
         options={'SKIP_SAVE'}
     )
 
-    render_mode: bpy.props.EnumProperty(
-        name="Render Mode",
-        description="Choose between blocking foreground render or non-blocking background process",
-        items=[
-            ('FOREGROUND', "Foreground (Blocking)", "Render within the current Blender instance. Freezes UI."),
-            ('BACKGROUND', "Background (Non-Blocking)", "Render in a separate process. Keeps UI responsive.")
-        ],
-        default='BACKGROUND',
-        options={'SKIP_SAVE'}
-    )
+
     
     presets_path: bpy.props.StringProperty(
         name="Presets Path",
@@ -156,6 +147,12 @@ class RenderCueSettings(bpy.types.PropertyGroup):
     # Runtime State (Not saved)
     is_rendering: bpy.props.BoolProperty(
         name="Is Rendering",
+        default=False,
+        options={'SKIP_SAVE'}
+    )
+
+    is_paused: bpy.props.BoolProperty(
+        name="Is Paused",
         default=False,
         options={'SKIP_SAVE'}
     )
@@ -240,14 +237,36 @@ class RenderCueSettings(bpy.types.PropertyGroup):
     )
 
 def register():
-    bpy.utils.register_class(RenderCueJob)
-    bpy.utils.register_class(RenderCueSettings)
+    try:
+        bpy.utils.register_class(RenderCueJob)
+    except ValueError:
+        pass
+        
+    try:
+        bpy.utils.register_class(RenderCueSettings)
+    except ValueError:
+        pass
+        
     # Store settings in WindowManager so they are global across scenes
     # We handle persistence manually via Text Block
-    bpy.types.WindowManager.rendercue = bpy.props.PointerProperty(type=RenderCueSettings)
+    try:
+        bpy.types.WindowManager.rendercue = bpy.props.PointerProperty(type=RenderCueSettings)
+    except Exception:
+        pass
 
 def unregister():
-    del bpy.types.WindowManager.rendercue
-    bpy.utils.unregister_class(RenderCueSettings)
-    bpy.utils.unregister_class(RenderCueJob)
+    try:
+        del bpy.types.WindowManager.rendercue
+    except AttributeError:
+        pass
+        
+    try:
+        bpy.utils.unregister_class(RenderCueSettings)
+    except RuntimeError:
+        pass
+        
+    try:
+        bpy.utils.unregister_class(RenderCueJob)
+    except RuntimeError:
+        pass
 
