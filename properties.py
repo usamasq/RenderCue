@@ -43,7 +43,7 @@ class RenderCueSettings(bpy.types.PropertyGroup):
             ('SEPARATE', "Separate Folders", "Create a subfolder for each scene (e.g. /output/SceneName/)"),
             ('SAME', "Same Folder", "Render all to the same directory"),
         ],
-        default='SEPARATE'
+        default='SEPARATE'  # Changed default to SEPARATE
     )
     
     global_output_path: bpy.props.StringProperty(
@@ -56,10 +56,12 @@ class RenderCueSettings(bpy.types.PropertyGroup):
 def register():
     bpy.utils.register_class(RenderCueJob)
     bpy.utils.register_class(RenderCueSettings)
-    # Store settings in WindowManager to be global across scenes in the session/file
-    bpy.types.WindowManager.rendercue = bpy.props.PointerProperty(type=RenderCueSettings)
+    # Store settings in Scene so they save with the .blend file
+    # This makes the queue persistent across sessions
+    bpy.types.Scene.rendercue = bpy.props.PointerProperty(type=RenderCueSettings)
 
 def unregister():
-    del bpy.types.WindowManager.rendercue
+    del bpy.types.Scene.rendercue
     bpy.utils.unregister_class(RenderCueSettings)
     bpy.utils.unregister_class(RenderCueJob)
+

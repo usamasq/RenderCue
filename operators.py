@@ -7,8 +7,7 @@ class RENDERCUE_OT_add_job(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        wm = context.window_manager
-        settings = wm.rendercue
+        settings = context.scene.rendercue
         
         job = settings.jobs.add()
         job.scene = context.scene
@@ -25,12 +24,10 @@ class RENDERCUE_OT_remove_job(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        wm = context.window_manager
-        return wm.rendercue.jobs and wm.rendercue.active_job_index >= 0
+        return context.scene.rendercue.jobs and context.scene.rendercue.active_job_index >= 0
 
     def execute(self, context):
-        wm = context.window_manager
-        settings = wm.rendercue
+        settings = context.scene.rendercue
         
         settings.jobs.remove(settings.active_job_index)
         
@@ -49,12 +46,10 @@ class RENDERCUE_OT_move_job(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        wm = context.window_manager
-        return wm.rendercue.jobs and wm.rendercue.active_job_index >= 0
+        return context.scene.rendercue.jobs and context.scene.rendercue.active_job_index >= 0
 
     def execute(self, context):
-        wm = context.window_manager
-        settings = wm.rendercue
+        settings = context.scene.rendercue
         idx = settings.active_job_index
         
         if self.direction == 'UP' and idx > 0:
@@ -73,8 +68,7 @@ class RENDERCUE_OT_populate_all(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
-        wm = context.window_manager
-        settings = wm.rendercue
+        settings = context.scene.rendercue
         
         existing_scenes = {job.scene for job in settings.jobs if job.scene}
         
@@ -96,12 +90,10 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
-        wm = context.window_manager
-        return wm.rendercue.jobs and wm.rendercue.active_job_index >= 0
+        return context.scene.rendercue.jobs and context.scene.rendercue.active_job_index >= 0
 
     def execute(self, context):
-        wm = context.window_manager
-        settings = wm.rendercue
+        settings = context.scene.rendercue
         
         if not settings.jobs:
             return {'CANCELLED'}

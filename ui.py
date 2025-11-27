@@ -13,15 +13,22 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
         # Scene Name
         row.label(text=item.scene.name, icon='SCENE_DATA')
         
-        # Renderer Info
+        # Renderer Info with text
         r_engine = item.scene.render.engine
         icon_engine = 'SHADING_RENDERED'
+        engine_name = r_engine
+        
         if r_engine == 'CYCLES':
             icon_engine = 'PMARKER_ACT'
-        elif r_engine == 'BLENDER_EEVEE' or r_engine == 'BLENDER_EEVEE_NEXT':
+            engine_name = "Cycles"
+        elif r_engine == 'BLENDER_EEVEE':
             icon_engine = 'LIGHT_SUN'
+            engine_name = "Eevee"
+        elif r_engine == 'BLENDER_EEVEE_NEXT':
+            icon_engine = 'LIGHT_SUN'
+            engine_name = "Eevee Next"
             
-        row.label(text="", icon=icon_engine)
+        row.label(text=engine_name, icon=icon_engine)
         
         # Resolution (actual dimensions)
         res_x = item.scene.render.resolution_x
@@ -43,17 +50,25 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
         fps = item.scene.render.fps
         row.label(text=f"{fps}fps")
             
-        # Samples
+        # Samples with clearer label
         samples = 0
         if r_engine == 'CYCLES':
             samples = item.scene.cycles.samples
         elif r_engine in ['BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT']:
-            samples = item.scene.eevee.taa_render_samples
+            # Blender 5.0 compatibility: try different property names
+            try:
+                samples = item.scene.eevee.taa_render_samples
+            except AttributeError:
+                # Fallback for Blender 5.0+
+                try:
+                    samples = item.scene.eevee.samples
+                except AttributeError:
+                    samples = 0
         
         if item.override_samples:
-            row.label(text=f"S:{item.samples}", icon='MODIFIER')
+            row.label(text=f"Samples: {item.samples}", icon='MODIFIER')
         else:
-            row.label(text=f"S:{samples}")
+            row.label(text=f"Samples: {samples}")
 
 class RenderCuePanelMixin:
     bl_label = "RenderCue"
@@ -64,7 +79,7 @@ class RenderCuePanelMixin:
     def draw(self, context):
         layout = self.layout
         wm = context.window_manager
-        settings = wm.rendercue
+        settings = context.scene.rendercue
         
         # Main List
         row = layout.row()
@@ -134,27 +149,53 @@ class RenderCuePanelMixin:
 
         # Actions
         layout.separator()
+        layout.label(text="VSE Integration:")
+        row = layout.row(align=True)
+        row.operator("rendercue.sync_vse", icon='SEQUENCE', text="Sync to VSE")
+        row.operator("rendercue.sync_from_vse", icon='IMPORT', text="Sync from VSE")
+        
+        layout.separator()
         row = layout.row(align=True)
         row.scale_y = 1.5
-        row.operator("rendercue.sync_vse", icon='SEQUENCE', text="Sync to VSE")
         row.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="Render Cue")
 
 class RENDER_PT_render_cue(RenderCuePanelMixin, bpy.types.Panel):
     bl_idname = "RENDER_PT_render_cue"
-    # Inherits bl_space_type etc from Mixin
+    bl_space_type = 'PROPERTIES'
+    bl_region_type = 'WINDOW'
+    bl_context = "render"
 
-class VIEW3D_PT_render_cue(RenderCuePanelMixin, bpy.types.Panel):
+class VIEW3D_PT_render_cue(bpy.types.Panel):
     bl_idname = "VIEW3D_PT_render_cue"
+    bl_label = "RenderCue"
     bl_space_type = 'VIEW_3D'
     bl_region_type = 'UI'
     bl_category = "RenderCue"
+    
+    def draw(self, context):
+        # Use the same draw method from the mixin
+        RenderCuePanelMixin.draw(self, context)
+
+class SEQUENCER_PT_render_cue(bpy.types.Panel):
+    bl_idname = "SEQUENCER_PT_render_cue"
+    bl_label = "RenderCue"
+    bl_space_type = 'SEQUENCE_EDITOR'
+    bl_region_type = 'UI'
+    bl_category = "RenderCue"
+    
+    def draw(self, context):
+        # Use the same draw method from the mixin
+        RenderCuePanelMixin.draw(self, context)
 
 def register():
     bpy.utils.register_class(RENDER_UL_render_cue_jobs)
     bpy.utils.register_class(RENDER_PT_render_cue)
     bpy.utils.register_class(VIEW3D_PT_render_cue)
+    bpy.utils.register_class(SEQUENCER_PT_render_cue)
 
 def unregister():
+    bpy.utils.unregister_class(SEQUENCER_PT_render_cue)
     bpy.utils.unregister_class(VIEW3D_PT_render_cue)
     bpy.utils.unregister_class(RENDER_PT_render_cue)
     bpy.utils.unregister_class(RENDER_UL_render_cue_jobs)
+
