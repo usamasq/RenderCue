@@ -19,11 +19,8 @@ class RENDERCUE_OT_sync_from_vse(bpy.types.Operator):
         
         # Find all scene strips in channel 1
         scene_strips = []
-        # Blender 5.0 compatibility: sequences_all is the new API
-        if hasattr(vse, 'sequences_all'):
-            all_strips = vse.sequences_all
-        else:
-            all_strips = vse.sequences
+        # Use top-level sequences to avoid confusion with meta strips
+        all_strips = vse.sequences
         for strip in all_strips:
             if strip.channel == target_channel and strip.type == 'SCENE':
                 scene_strips.append(strip)

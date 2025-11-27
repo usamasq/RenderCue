@@ -18,11 +18,10 @@ class RENDERCUE_OT_sync_vse(bpy.types.Operator):
         
         # Clear existing strips in the selected channel
         target_channel = settings.vse_channel
-        # Blender 5.0 compatibility: sequences_all is the new API, sequences might be removed
-        if hasattr(vse, 'sequences_all'):
-            seq_collection = vse.sequences_all
-        else:
-            seq_collection = vse.sequences
+        
+        # We must use vse.sequences for modification (adding/removing)
+        # vse.sequences_all is read-only or does not support new_scene/remove
+        seq_collection = vse.sequences
             
         for strip in list(seq_collection):
             if strip.channel == target_channel:
