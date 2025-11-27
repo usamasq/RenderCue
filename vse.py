@@ -18,11 +18,15 @@ class RENDERCUE_OT_sync_vse(bpy.types.Operator):
         
         # Clear existing strips in the selected channel
         target_channel = settings.vse_channel
-        # Blender 5.0 compatibility: sequences_all removed, use sequences
-        strips = getattr(vse, 'sequences_all', vse.sequences)
-        for strip in list(strips):
+        # Blender 5.0 compatibility: sequences_all is the new API, sequences might be removed
+        if hasattr(vse, 'sequences_all'):
+            seq_collection = vse.sequences_all
+        else:
+            seq_collection = vse.sequences
+            
+        for strip in list(seq_collection):
             if strip.channel == target_channel:
-                vse.sequences.remove(strip)
+                seq_collection.remove(strip)
                 
         current_frame = 1
         
@@ -42,7 +46,7 @@ class RENDERCUE_OT_sync_vse(bpy.types.Operator):
             
             # Add Scene Strip
             try:
-                strip = vse.sequences.new_scene(
+                strip = seq_collection.new_scene(
                     name=job.scene.name,
                     scene=job.scene,
                     channel=target_channel,
