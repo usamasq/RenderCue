@@ -10,12 +10,6 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         default=True
     )
     
-    auto_sync_vse: bpy.props.BoolProperty(
-        name="Auto-Sync VSE After Queue Changes",
-        description="Automatically update the Video Sequence Editor timeline whenever jobs are added, removed, or reordered",
-        default=False
-    )
-    
     play_sound_on_finish: bpy.props.BoolProperty(
         name="Play Sound on Finish",
         description="Play a system notification sound when the entire batch render queue completes",
@@ -55,15 +49,13 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
             col.label(text="1. Open RenderCue panel (Render Properties or 3D Viewport N-Panel)")
             col.label(text="2. Click 'Add Scene' or 'Add All Scenes' to build your queue")
             col.label(text="3. Select a job to configure overrides (resolution, samples, etc.)")
-            col.label(text="4. Click 'Sync to VSE' to visualize your sequence")
-            col.label(text="5. Click 'Render Cue' to batch render all scenes")
+            col.label(text="4. Click 'Render Cue' to batch render all scenes")
             layout.separator()
         
         # Preferences
         box = layout.box()
         box.label(text="Preferences:", icon='PREFERENCES')
         box.prop(self, "show_instructions")
-        box.prop(self, "auto_sync_vse")
         box.prop(self, "play_sound_on_finish")
         
         layout.separator()
@@ -84,7 +76,6 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         box.label(text="Tips:", icon='LIGHTPROBE_SPHERE')
         col = box.column(align=True)
         col.label(text="• Queue is saved with your .blend file - no need to rebuild!")
-        col.label(text="• Use 'Sync from VSE' to import strip order from Video Editor")
         col.label(text="• Click the ⧉ icon next to any override to apply it to all jobs")
         col.label(text="• Access RenderCue from multiple locations for convenience")
         

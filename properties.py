@@ -165,13 +165,11 @@ class RenderCueSettings(bpy.types.PropertyGroup):
         options={'SKIP_SAVE'}
     )
 
-    # VSE Integration
-    vse_channel: bpy.props.IntProperty(
-        name="VSE Channel",
-        default=1,
-        min=1,
-        max=128,
-        description="The Video Sequence Editor channel to use for syncing strips",
+    presets_path: bpy.props.StringProperty(
+        name="Presets Path",
+        subtype='DIR_PATH',
+        default="//presets/",
+        description="Directory where render queue presets are saved and loaded from",
         options={'SKIP_SAVE'}
     )
 

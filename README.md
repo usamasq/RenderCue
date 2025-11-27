@@ -2,74 +2,66 @@
 
 **Sequence. Queue. Render.**
 
-RenderCue is a powerful Blender add-on that bridges the gap between Scene Management and Batch Rendering. It provides a streamlined visual interface to queue multiple scenes, override their output settings per-job, sync with the Video Sequence Editor (VSE), and execute renders in the background while keeping your UI responsive.
+RenderCue is a powerful Blender add-on that bridges the gap between Scene Management and Batch Rendering. It provides a streamlined visual interface to queue multiple scenes, override their output settings per-job, and execute renders in the background while keeping your UI responsive.
 
-## Features
+## 🚀 Features
 
-- **Global Queue**: Access and manage your render queue from any scene in your project.
-- **Visual Queue**: Manage a list of scenes to render with drag-and-drop reordering.
-- **Per-Job Overrides**: Customize Output Path, Frame Range, Resolution %, Format, and Samples for each job without changing the original scene settings.
-- **Background Rendering**: Render your queue in a separate process, keeping Blender responsive and providing live progress updates.
-- **Status Bar Integration**: Monitor render progress directly in Blender's status bar.
-- **Desktop Notifications**: Get native system notifications when renders complete or fail.
-- **VSE Sync**: Automatically visualize your render queue to the Video Sequence Editor timeline.
-- **Presets**: Save and load your queue configurations for different workflows.
-- **Batch Actions**: Apply overrides to all jobs with a single click.
-- **Smart Output**: Organize outputs into separate folders or a single directory automatically.
+- **Global Render Queue**: Add scenes from anywhere in your .blend file to a centralized queue.
+- **Batch Rendering**: Render all queued scenes in one go with a single click.
+- **Background Rendering**: Renders are performed in the background, keeping Blender responsive.
+- **Pause/Resume**: Pause renders at any time and resume them later.
+- **Overrides**:
+  - **Output Path**: Set a global output folder or override per job.
+  - **Frame Range**: Render specific frame ranges for each job.
+  - **Resolution**: Quickly scale resolution (e.g., 50% for drafts).
+  - **Render Engine**: Switch between Cycles and Eevee per job.
+  - **View Layer**: Select specific view layers to render.
+- **Presets**: Save and load queue configurations, or use quick "Draft"/"Production" presets.
+- **Desktop Notifications**: Get notified when your batch render completes or fails.
+- **Status Bar Integration**: Monitor render progress directly from the status bar.
 
-## Installation
+## 📦 Installation
 
 1. Download the latest release zip file.
-2. Open Blender (4.2 or later).
-3. Go to **Edit > Preferences > Get Extensions**.
-4. Click the arrow icon (top right) and select **Install from Disk...**.
-5. Select the `RenderCue.zip` file.
+2. Open Blender.
+3. Go to **Edit > Preferences > Add-ons**.
+4. Click **Install...** and select the zip file.
+5. Enable the addon by checking the box next to **Render: RenderCue**.
 
-## Usage
+## 🎮 Usage
 
-### Accessing RenderCue
+### 1. Building the Queue
 
-You can access the RenderCue panel in:
+- Open the **RenderCue** panel in the **Render Properties** tab or the **3D Viewport N-Panel**.
+- Click **Add Scene** to add the current scene, or **Add All Scenes** to populate the queue with all scenes in the file.
+- Reorder jobs using the up/down arrows.
 
-- **Render Properties** tab (Properties Panel)
-- **3D Viewport** sidebar (Press `N` > **RenderCue** tab)
-- **Video Sequencer** sidebar (Press `N` > **RenderCue** tab)
+### 2. Configuring Jobs
 
-### 1. Building Your Queue
+- Use the **Batch Settings** box to set a global output path.
+- Expand the **Overrides** section for any job to set specific settings:
+  - **Output**: Custom output path for this job.
+  - **Frame Range**: Override the scene's frame range.
+  - **Resolution %**: Scale the render resolution.
+  - **Format**: Change the file format (PNG, JPEG, etc.).
+  - **Samples**: Override render samples.
+  - **Engine**: Switch render engine (Cycles/Eevee).
+  - **View Layer**: Select a specific view layer.
+- **Tip**: Click the duplicate icon (⧉) next to an override to apply that setting to **ALL** jobs in the queue.
 
-- Click **Add Scene** to add the current scene.
-- Click **Add All Scenes** to automatically populate the queue with every scene in your .blend file.
-- Use the **Up/Down** arrows to reorder jobs.
+### 3. Presets
 
-### 2. Customizing Jobs (Overrides)
-
-Select any job in the list to access its override settings. These changes apply _only_ to the RenderCue job, leaving your actual scene settings untouched.
-
-- **Output**: Set a custom output folder.
-- **Frame Range**: Render a specific range (e.g., 1-100).
-- **Resolution**: Scale resolution (e.g., 50% for test renders).
-- **Format**: Change output format (e.g., PNG, OpenEXR Multilayer, FFMPEG).
-- **Samples**: Override render samples for Cycles or Eevee.
-
-**Pro Tip:** Click the **Duplicate Icon** (⧉) next to any override to apply that setting to ALL jobs in the queue.
-
-### 3. VSE Integration
-
-Visualize your render flow before you start:
-
-- Click **Sync to VSE** to generate strips in the Video Sequence Editor for all queued jobs.
+- Use the **Presets** menu to:
+  - Apply **Quick Settings** like "Draft" (50% res, low samples) or "Production".
+  - **Save** your current queue configuration to a JSON file.
+  - **Load** a previously saved queue.
 
 ### 4. Rendering
 
-RenderCue performs all renders in the **background**, keeping your Blender UI responsive.
-
-1.  **Start Render**: Click the **Render Cue** button in the panel.
-2.  **Progress**: The panel will update with the current job, frame progress, and an estimated time remaining (ETR).
-3.  **Preview**: A preview of the last rendered frame is displayed in the panel.
-4.  **Controls**:
-    - **Pause**: Temporarily pause the render process (finishes current frame first).
-    - **Resume**: Continue rendering from where it left off.
-    - **Stop**: Cancel the render process immediately.
+- Click **Render Cue** to start the batch process.
+- Monitor progress in the panel or the status bar.
+- Use **Pause**, **Resume**, or **Stop** buttons to control the process.
+- You can continue working in Blender while rendering (rendering happens in the background).
 
 > [!NOTE]
 > Closing Blender while a render is in progress will terminate the background render process.

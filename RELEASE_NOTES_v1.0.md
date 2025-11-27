@@ -33,16 +33,6 @@
 - **Live Updates**: Render progress (Job X/Y, Frame %, ETR) is displayed directly in Blender's bottom status bar.
 - **Always Visible**: Keep track of renders while working in other editors (Shading, Modeling, etc.).
 
-### 5. ✅ VSE Panel Access
-
-RenderCue panel now available in **Video Sequence Editor**!
-
-**Panel Locations** (all 3 show the same queue):
-
-- ✓ Render Properties (original)
-- ✓ 3D Viewport N-Panel
-- ✓ **Video Sequencer N-Panel** (NEW!)
-
 ---
 
 ## Core Features
@@ -70,14 +60,12 @@ RenderCue panel now available in **Video Sequence Editor**!
 - ✅ Background Rendering (Pause/Resume/Stop)
 - ✅ Desktop Notifications & Webhooks
 - ✅ Status Bar Integration
-- ✅ VSE panel access
 - ✅ Addon preferences page
 - ✅ Persistent storage (saves with .blend)
 - ✅ SEPARATE folders default
 - ✅ Blender 5.0 full compatibility
 - ✅ Basic render queue
 - ✅ Per-job overrides
-- ✅ Sync to VSE
 - ✅ Batch rendering
 
 ---
@@ -88,8 +76,7 @@ RenderCue panel now available in **Video Sequence Editor**!
 
 1. **Add scenes** → Click "Add Scene" or "Add All Scenes"
 2. **Configure** → Set overrides (resolution, samples, etc.)
-3. **Visualize** → Click "Sync to VSE" to preview
-4. **Render** → Click "Render Cue" (Background)
+3. **Render** → Click "Render Cue" (Background)
 
 ---
 
@@ -114,4 +101,3 @@ RenderCue panel now available in **Video Sequence Editor**!
 ## Known Limitations
 
 1. **Appending**: Because the queue is global and stored in a custom text block, you cannot "Append" a render queue from another .blend file like a Scene.
-2. **VSE Sync**: One-way only (Queue -> VSE) to prevent accidental data loss.

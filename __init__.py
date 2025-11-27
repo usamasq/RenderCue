@@ -2,7 +2,6 @@ import bpy
 from . import properties
 from . import ui
 from . import operators
-from . import vse
 from . import render
 from . import preferences
 from . import updater
@@ -24,14 +23,12 @@ def register():
     updater.register()
     operators.register()
     ui.register()
-    vse.register()
     render.register()
     preferences.register()
 
 def unregister():
     preferences.unregister()
     render.unregister()
-    vse.unregister()
     ui.unregister()
     operators.unregister()
     updater.unregister()

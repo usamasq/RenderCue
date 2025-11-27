@@ -76,8 +76,8 @@ class RENDERCUE_OT_populate_all(bpy.types.Operator):
         existing_scenes = {job.scene for job in settings.jobs if job.scene}
         
         for scene in bpy.data.scenes:
-            # Exclude existing scenes and the special VSE scene
-            if scene not in existing_scenes and scene.name != "RenderCue VSE":
+            # Exclude existing scenes
+            if scene not in existing_scenes:
                 job = settings.jobs.add()
                 job.scene = scene
                 
@@ -341,92 +341,6 @@ class RENDERCUE_OT_resume_render(bpy.types.Operator):
                 pass
         return {'FINISHED'}
 
-class RENDERCUE_OT_open_vse_scene(bpy.types.Operator):
-    bl_idname = "rendercue.open_vse_scene"
-    bl_label = "Open VSE Scene"
-    bl_description = "Switch to the RenderCue VSE scene"
-    
-    @classmethod
-    def poll(cls, context):
-        return "RenderCue VSE" in bpy.data.scenes
-    
-    def execute(self, context):
-        scene = bpy.data.scenes.get("RenderCue VSE")
-        if scene:
-            context.window.scene = scene
-            
-            # Switch to Video Editing Workspace
-            vse_workspace = None
-            for ws in bpy.data.workspaces:
-                if "Video Editing" in ws.name:
-                    vse_workspace = ws
-                    break
-            
-            if not vse_workspace:
-                # Create a new workspace by duplicating the current one
-                current_ws = context.workspace
-                bpy.ops.workspace.duplicate()
-                
-                # Get the new workspace (it should be active)
-                vse_workspace = bpy.context.workspace
-                
-                # Safety check: ensure we are not renaming the original workspace
-                if vse_workspace != current_ws:
-                    vse_workspace.name = "Video Editing"
-                else:
-                    # Fallback or error handling
-                    pass
-                
-                # Setup the workspace layout for VSE
-                screen = context.window.screen
-                max_area = None
-                max_size = 0
-                
-                for area in screen.areas:
-                    size = area.width * area.height
-                    if size > max_size:
-                        max_size = size
-                        max_area = area
-                
-                if max_area:
-                    max_area.type = 'SEQUENCE_EDITOR'
-                    
-                    # Configure the Sequencer
-                    for space in max_area.spaces:
-                        if space.type == 'SEQUENCE_EDITOR':
-                            space.view_type = 'SEQUENCER_PREVIEW'
-                            space.show_region_ui = True # Show N-panel
-                            space.pin_id = None
-                            break
-            
-            if vse_workspace:
-                context.window.workspace = vse_workspace
-                
-                # Frame All (View All)
-                screen = context.window.screen
-                for area in screen.areas:
-                    if area.type == 'SEQUENCE_EDITOR':
-                        ctx = context.copy()
-                        ctx['window'] = context.window
-                        ctx['screen'] = screen
-                        ctx['area'] = area
-                        for region in area.regions:
-                            if region.type == 'WINDOW':
-                                ctx['region'] = region
-                                break
-                        
-                        try:
-                            with context.temp_override(**ctx):
-                                # Maximize the area to hide others (Clean Workspace)
-                                bpy.ops.screen.screen_full_area(use_hide_panels=False)
-                                
-                                bpy.ops.sequencer.view_all()
-                                bpy.ops.sequencer.view_all_preview()
-                        except:
-                            pass
-                        break
-        return {'FINISHED'}
-
 def register():
     bpy.utils.register_class(RENDERCUE_OT_add_job)
     bpy.utils.register_class(RENDERCUE_OT_remove_job)
@@ -442,11 +356,9 @@ def register():
     bpy.utils.register_class(RENDERCUE_OT_stop_render)
     bpy.utils.register_class(RENDERCUE_OT_pause_render)
     bpy.utils.register_class(RENDERCUE_OT_resume_render)
-    bpy.utils.register_class(RENDERCUE_OT_open_vse_scene)
 
 def unregister():
     for cls in (
-        RENDERCUE_OT_open_vse_scene,
         RENDERCUE_OT_resume_render,
         RENDERCUE_OT_pause_render,
         RENDERCUE_OT_stop_render,

@@ -154,16 +154,6 @@ class RenderCuePanelMixin:
         row.prop(settings, "global_output_path", text="Output Path")
         row.operator("rendercue.open_output_folder", icon='EXTERNAL_DRIVE', text="")
         
-        # VSE Integration
-        layout.separator()
-        row = layout.row()
-        row.scale_y = 1.2
-        
-        if "RenderCue VSE" in bpy.data.scenes:
-            row.operator("rendercue.open_vse_scene", icon='SCENE_DATA', text="Open VSE")
-        else:
-            row.operator("rendercue.sync_vse", icon='SEQUENCE', text="Sync to VSE")
-        
         # Selected Job Settings (Overrides)
         if settings.jobs and settings.active_job_index >= 0 and len(settings.jobs) > settings.active_job_index:
             job = settings.jobs[settings.active_job_index]
@@ -308,17 +298,6 @@ class RENDERCUE_OT_clear_status(bpy.types.Operator):
         context.window_manager.rendercue.last_render_message = ""
         return {'FINISHED'}
 
-class SEQUENCER_PT_render_cue(bpy.types.Panel):
-    bl_idname = "SEQUENCER_PT_render_cue"
-    bl_label = "RenderCue"
-    bl_space_type = 'SEQUENCE_EDITOR'
-    bl_region_type = 'UI'
-    bl_category = "RenderCue"
-    
-    def draw(self, context):
-        # Use the same draw method from the mixin
-        RenderCuePanelMixin.draw(self, context)
-
 def draw_status_bar(self, context):
     settings = context.window_manager.rendercue
     if settings.is_rendering:
@@ -331,7 +310,6 @@ def register():
     bpy.utils.register_class(RENDER_PT_render_cue_dashboard)
     bpy.utils.register_class(VIEW3D_PT_render_cue)
     # bpy.utils.register_class(VIEW3D_PT_render_cue) # Duplicate removed
-    bpy.utils.register_class(SEQUENCER_PT_render_cue)
     bpy.utils.register_class(RENDERCUE_OT_clear_status)
     
     # Register Status Bar
@@ -346,7 +324,6 @@ def unregister():
     
     for cls in (
         RENDERCUE_OT_clear_status,
-        SEQUENCER_PT_render_cue,
         VIEW3D_PT_render_cue,
         RENDER_PT_render_cue_dashboard,
         RENDERCUE_MT_presets_menu,
