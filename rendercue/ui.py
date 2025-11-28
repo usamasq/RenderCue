@@ -173,22 +173,32 @@ class RenderCuePanelMixin:
         
         layout.separator()
         
-        # Batch Settings Group
+        # Output Configuration Group
         box = layout.box()
-        box.label(text="Batch Settings", icon='PREFERENCES')
+        row = box.row()
+        row.label(text="Output Configuration", icon='PREFERENCES')
+        
         col = box.column(align=True)
         col.use_property_split = True
         col.use_property_decorate = False
         
-        col.prop(settings, "output_structure", text="Structure")
+        # Toggle: Same as Blend vs Custom
+        col.prop(settings, "use_custom_output_path", text="Custom Output Path")
         
-        row = col.row(align=True)
-        row.prop(settings, "global_output_path", text="Output Path")
-        # Browse Button
-        op = row.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
-        op.target_property = "global_output_path"
-        # Open Folder Button
-        row.operator("rendercue.open_output_folder", icon='EXTERNAL_DRIVE', text="")
+        if settings.use_custom_output_path:
+            # Custom Path Input
+            row = col.row(align=True)
+            row.prop(settings, "global_output_path", text="Path")
+            # Browse Button
+            op = row.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
+            op.target_property = "global_output_path"
+        else:
+            # Informative Label for Default
+            col.label(text="Base Path: // (Same as .blend file)", icon='FILE_BLEND')
+            
+        # Informative Label for Structure
+        col.separator()
+        col.label(text="Structure: [Base Path] / [Scene Name] /", icon='INFO')
         
         # Selected Job Settings (Overrides)
         if settings.jobs and settings.active_job_index >= 0 and len(settings.jobs) > settings.active_job_index:

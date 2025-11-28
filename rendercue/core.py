@@ -43,7 +43,7 @@ class StateManager:
         data = {
             "timestamp": time.time(),
             "global_output_path": settings.global_output_path,
-            "output_structure": settings.output_structure,
+            "use_custom_output_path": settings.use_custom_output_path,
             "jobs": []
         }
         
@@ -92,7 +92,7 @@ class StateManager:
             settings.jobs.clear()
             
             settings.global_output_path = data.get("global_output_path", settings.global_output_path)
-            settings.output_structure = data.get("output_structure", settings.output_structure)
+            settings.use_custom_output_path = data.get("use_custom_output_path", False)
             
             for job_data in data.get("jobs", []):
                 job = settings.jobs.add()
@@ -125,9 +125,6 @@ class StateManager:
             return True
         except Exception as e:
             print(f"Error loading state: {e}")
-            return True
-        except Exception as e:
-            print(f"Error loading state: {e}")
             return False
 
     @staticmethod
@@ -136,7 +133,7 @@ class StateManager:
         settings = context.window_manager.rendercue
         data = {
             "global_output_path": settings.global_output_path,
-            "output_structure": settings.output_structure,
+            "use_custom_output_path": settings.use_custom_output_path,
             "jobs": []
         }
         
@@ -183,7 +180,7 @@ class StateManager:
             settings.jobs.clear()
             
             settings.global_output_path = data.get("global_output_path", settings.global_output_path)
-            settings.output_structure = data.get("output_structure", settings.output_structure)
+            settings.use_custom_output_path = data.get("use_custom_output_path", False)
             
             for job_data in data.get("jobs", []):
                 job = settings.jobs.add()

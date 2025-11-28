@@ -135,14 +135,10 @@ class RenderCueSettings(bpy.types.PropertyGroup):
     jobs: bpy.props.CollectionProperty(type=RenderCueJob, options={'SKIP_SAVE'})
     active_job_index: bpy.props.IntProperty(name="Active Job Index", default=0, options={'SKIP_SAVE'})
     
-    output_structure: bpy.props.EnumProperty(
-        name="Output Structure",
-        items=[
-            ('SEPARATE', "Separate Folders", "Create a subfolder for each scene (e.g. /output/SceneName/)"),
-            ('SAME', "Same Folder", "Render all files directly into the global output directory"),
-        ],
-        default='SEPARATE',
-        description="Determines how output files are organized in the global output directory",
+    use_custom_output_path: bpy.props.BoolProperty(
+        name="Use Custom Output Path",
+        default=False,
+        description="Save renders to a custom directory instead of the blend file's location",
         options={'SKIP_SAVE'}
     )
     

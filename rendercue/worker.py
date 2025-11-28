@@ -175,13 +175,11 @@ class BackgroundWorker:
         bpy.app.handlers.render_post.append(self.on_render_post)
         
         global_output = self.manifest.get("global_output_path", "//")
-        output_structure = self.manifest.get("output_structure", "SEPARATE")
+        use_custom_output_path = self.manifest.get("use_custom_output_path", False)
         
-        # Pre-calculate scene usage for unique folder naming in SEPARATE mode
+        # Pre-calculate scene usage for unique folder naming
         scene_usage_count = {}
         
-        # Global frame counter for SAME FOLDER mode
-        global_frame_counter = 1
         blend_name = os.path.splitext(os.path.basename(bpy.data.filepath))[0]
 
         for i, job in enumerate(self.jobs):
@@ -210,34 +208,26 @@ class BackgroundWorker:
                 
             # Output Path Logic
             if job["override_output"]:
-                base_path = job["output_path"]
-                # If overriding output, we treat it as a separate destination usually, 
-                # but let's respect the structure if it's not absolute? 
-                # Actually, override output usually implies a specific folder.
-                # Let's assume override output is the final folder for that job.
-                output_dir = base_path
+                # Job Override takes precedence
+                output_dir = job["output_path"]
             else:
-                base_path = global_output
+                # Determine Base Path
+                if use_custom_output_path:
+                    base_path = global_output
+                else:
+                    base_path = "//"
+                    
                 if base_path.startswith("//"):
                     base_path = bpy.path.abspath(base_path)
                     
-                if output_structure == 'SEPARATE':
-                    folder_name = scene_name
-                    # If this scene is used multiple times, append index to subsequent ones
-                    # Or always append index if it appears multiple times in the queue?
-                    # User said: "how are folders named if we queue a scene multiple times... Need to fix that"
-                    # Let's append _Job<Index> if it's not the first time OR if we want to be explicit.
-                    # To be safe and consistent: If a scene appears > 1 time in TOTAL list, we might want to suffix.
-                    # But simpler: Just check if we've seen it before in this run?
-                    # Better: If we have duplicates, suffix.
-                    # Let's use the usage count we are tracking.
-                    if scene_usage_count[scene_name] > 1:
-                        folder_name = f"{scene_name}_Job{i+1}"
-                    
-                    output_dir = os.path.join(base_path, folder_name)
-                else:
-                    # SAME FOLDER
-                    output_dir = base_path
+                # Always Separate Folders
+                folder_name = scene_name
+                
+                # Handle Duplicates
+                if scene_usage_count[scene_name] > 1:
+                    folder_name = f"{scene_name}_Job{i+1}"
+                
+                output_dir = os.path.join(base_path, folder_name)
 
             os.makedirs(output_dir, exist_ok=True)
             
@@ -270,10 +260,8 @@ class BackgroundWorker:
                             pass
 
             # Determine File Format Extension (for manual naming if needed)
-            # Actually, Blender handles extension if we don't provide it, but we want control.
             
             # Render Loop
-            # We iterate frames manually
             current_frame = frame_start
             while current_frame <= frame_end:
                 # Check for Pause
@@ -283,35 +271,8 @@ class BackgroundWorker:
                 scene.frame_set(current_frame)
                 
                 # Construct Filename
-                if output_structure == 'SAME_FOLDER' and not job["override_output"]:
-                    # Continuous numbering: BlendName_0001, BlendName_0002...
-                    # We use global_frame_counter
-                    file_name = f"{blend_name}_{global_frame_counter:04d}"
-                    global_frame_counter += 1
-                else:
-                    # Standard naming: SceneName_0001...
-                    # Or if override output, just standard frame number
-                    # We use the scene's frame number
-                    file_name = f"{scene_name}_{current_frame:04d}"
-                
-                # Set Filepath
-                # We need to strip extension from file_name if Blender adds it, 
-                # but render(write_still=True) expects the path without extension usually?
-                # Actually, if we provide extension, Blender uses it.
-                # Let's let Blender handle extension by not providing it in the name, 
-                # BUT we need to ensure the frame number is what we want.
-                # If we set filepath to "path/to/file_0001", Blender might add "0001" again if use_file_extension is True?
-                # No, if we set filepath, Blender uses it. 
-                # If we want exact control, we should probably disable 'use_overwrite' or similar?
-                
-                # Wait, if we set scene.render.filepath = "/path/to/image", Blender appends frame number.
-                # If we want to FORCE a specific name (like for continuous sequence), we must include the number in the path
-                # AND tell Blender NOT to append frame number.
-                # The way to do that is to use the '#' characters or just set the path and render single frame?
-                # When rendering a single frame (write_still=True), Blender usually appends frame number 
-                # UNLESS we are not in animation mode?
-                # Actually, for single frame render, if we set filepath to "/tmp/img.png", it writes to "/tmp/img.png".
-                # It does NOT append frame number automatically if we don't ask it to (unlike animation render).
+                # Standard naming: SceneName_0001...
+                file_name = f"{scene_name}_{current_frame:04d}"
                 
                 full_path = os.path.join(output_dir, file_name)
                 scene.render.filepath = full_path
@@ -321,16 +282,12 @@ class BackgroundWorker:
                     self.log_status(f"Rendering {scene_name} (Frame {current_frame})", etr="Calculating...")
                     print(f"Rendering frame {current_frame} to {full_path}")
                     
-                    # Redirect stdout to suppress Blender noise if needed, but we want logs.
                     bpy.ops.render.render(write_still=True)
                     
                 except Exception as e:
                     msg = f"Error rendering {scene_name} frame {current_frame}: {str(e)}"
                     print(msg)
                     self.log_status(msg, error=str(e))
-                    # We might want to continue or abort? Let's continue to next frame/job.
-                    # But if it's a persistent error, maybe abort job?
-                    # For now, let's try next frame.
                 
                 current_frame += 1
 
