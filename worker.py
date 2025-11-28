@@ -141,15 +141,19 @@ class BackgroundWorker:
         self.log_status(msg, etr=etr, last_frame=preview_path)
 
     def on_render_pre(self, scene, depsgraph=None):
-        # Check for Pause
-        pause_file = os.path.join(os.path.dirname(self.status_path), "rendercue_pause.signal")
-        if os.path.exists(pause_file):
-            self.log_status("Paused", etr="Paused")
-            print("Render Paused...")
-            while os.path.exists(pause_file):
-                time.sleep(1)
-            print("Render Resumed")
-            self.log_status("Resuming...", etr="Calculating...")
+        try:
+            # Check for Pause
+            pause_file = os.path.join(os.path.dirname(self.status_path), "rendercue_pause.signal")
+            if os.path.exists(pause_file):
+                self.log_status("Paused", etr="Paused")
+                print("Render Paused...")
+                while os.path.exists(pause_file):
+                    time.sleep(1)
+                print("Render Resumed")
+                self.log_status("Resuming...", etr="Calculating...")
+        except Exception as e:
+            print(f"Pause Handler Error: {e}")
+            self.log_status(f"Pause Error: {e}", error=str(e))
 
     def run(self):
         if not self.load_manifest():

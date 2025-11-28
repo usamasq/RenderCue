@@ -108,6 +108,17 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         self._manifest_file = os.path.join(temp_dir, "rendercue_manifest.json")
         self._status_file = os.path.join(temp_dir, "rendercue_status.json")
         
+        # Cleanup old pause signal
+        pause_file = os.path.join(temp_dir, "rendercue_pause.signal")
+        if os.path.exists(pause_file):
+            try:
+                os.remove(pause_file)
+            except:
+                pass
+        
+        # Reset Pause State
+        context.window_manager.rendercue.is_paused = False
+        
         # Save Manifest
         StateManager.save_state(context, self._manifest_file)
         

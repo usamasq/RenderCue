@@ -9,3 +9,10 @@ dist/
 *.blend
 *.blend1
 render_cue_output/
+
+# RenderCue Temp Files
+rendercue_manifest.json
+rendercue_status.json
+rendercue_pause.signal
+.rendercue_preview_*.jpg
+worker_debug.log

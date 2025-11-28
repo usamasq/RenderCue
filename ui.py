@@ -275,7 +275,6 @@ class RenderCuePanelMixin:
         row = layout.row()
         row.alignment = 'CENTER'
         row.scale_y = 2.5 
-        row.scale_x = 3.0 # Make it wide but keep content centered
         row.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="START RENDER QUEUE")
 
 class RENDERCUE_MT_presets_menu(bpy.types.Menu):
