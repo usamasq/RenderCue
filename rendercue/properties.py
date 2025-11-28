@@ -266,6 +266,12 @@ class RenderCueSettings(bpy.types.PropertyGroup):
         options={'SKIP_SAVE'}
     )
 
+    # UI State (Collapse/Expand)
+    ui_show_output: bpy.props.BoolProperty(name="Show Output", default=True, options={'SKIP_SAVE'})
+    ui_show_dimensions: bpy.props.BoolProperty(name="Show Dimensions", default=False, options={'SKIP_SAVE'})
+    ui_show_format: bpy.props.BoolProperty(name="Show Format", default=False, options={'SKIP_SAVE'})
+    ui_show_render: bpy.props.BoolProperty(name="Show Render", default=False, options={'SKIP_SAVE'})
+
 def register():
     try:
         bpy.utils.register_class(RenderCueJob)
