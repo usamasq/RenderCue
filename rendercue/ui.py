@@ -218,18 +218,27 @@ class RenderCuePanelMixin:
                 box = layout.box()
                 row = box.row(align=True)
                 
+                # Split layout to keep title stable and push icons to the right
+                # Factor 0.7 gives enough space for the title
+                split = row.split(factor=0.7)
+                
+                # Left Side: Toggle/Title
                 # Toggle Icon
                 is_expanded = getattr(settings, prop_name)
                 icon_state = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
                 
                 # Header acts as a button
-                row.prop(settings, prop_name, icon=icon_state, text=title, emboss=False)
+                split.prop(settings, prop_name, icon=icon_state, text=title, emboss=False)
+                
+                # Right Side: Indicators
+                r_row = split.row(align=True)
+                r_row.alignment = 'RIGHT'
                 
                 # Active Indicator
                 if is_active:
-                    row.label(text="", icon='CHECKMARK')
+                    r_row.label(text="", icon='CHECKMARK')
                 
-                row.label(text="", icon=icon)
+                r_row.label(text="", icon=icon)
                 
                 if is_expanded:
                     # Add some padding inside the box
@@ -244,7 +253,7 @@ class RenderCuePanelMixin:
             if col:
                 # Header Row (Checkbox + Apply Button)
                 row = col.row(align=True)
-                row.prop(job, "override_output", text="Override Path")
+                row.prop(job, "override_output", text="Output Path Override")
                 
                 sub = row.row(align=True)
                 sub.scale_x = 1.2 # Make button slightly wider for text
@@ -277,7 +286,7 @@ class RenderCuePanelMixin:
             if col:
                 # Frame Range
                 row = col.row(align=True)
-                row.prop(job, "override_frame_range", text="Override Frame Range")
+                row.prop(job, "override_frame_range", text="Frame Range Override")
                 
                 sub = row.row(align=True)
                 sub.scale_x = 1.2
@@ -299,7 +308,7 @@ class RenderCuePanelMixin:
 
                 # Resolution
                 row = col.row(align=True)
-                row.prop(job, "override_resolution", text="Override Resolution")
+                row.prop(job, "override_resolution", text="Resolution Override")
                 
                 sub = row.row(align=True)
                 sub.scale_x = 1.2
@@ -322,7 +331,7 @@ class RenderCuePanelMixin:
             
             if col:
                 row = col.row(align=True)
-                row.prop(job, "override_format", text="Override Format")
+                row.prop(job, "override_format", text="Format Override")
                 
                 sub = row.row(align=True)
                 sub.scale_x = 1.2
@@ -347,7 +356,7 @@ class RenderCuePanelMixin:
             if col:
                 # Engine
                 row = col.row(align=True)
-                row.prop(job, "override_engine", text="Override Engine")
+                row.prop(job, "override_engine", text="Engine Override")
                 
                 sub = row.row(align=True)
                 sub.scale_x = 1.2
@@ -367,7 +376,7 @@ class RenderCuePanelMixin:
 
                 # Samples
                 row = col.row(align=True)
-                row.prop(job, "override_samples", text="Override Samples")
+                row.prop(job, "override_samples", text="Samples Override")
                 
                 sub = row.row(align=True)
                 sub.scale_x = 1.2
@@ -388,7 +397,7 @@ class RenderCuePanelMixin:
                 # View Layer
                 if job.scene and len(job.scene.view_layers) > 1:
                     row = col.row(align=True)
-                    row.prop(job, "override_view_layer", text="Override View Layer")
+                    row.prop(job, "override_view_layer", text="View Layer Override")
                     
                     sub = row.row(align=True)
                     sub.scale_x = 1.2
