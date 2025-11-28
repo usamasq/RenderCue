@@ -23,7 +23,5 @@ excludes = [
     ".gitignore",
     "build_package.py",
     "TROUBLESHOOTING.md",
-    "Features1.jpg",
-    "Features2.jpg",
-    "RenderCue.jpg"
+    "*.jpg"
 ]
