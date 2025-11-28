@@ -217,6 +217,24 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         img.update()
         settings.preview_image = img
         
+        # Update UI Preview Collection
+        try:
+            from . import ui
+            if "main" in ui.preview_collections:
+                pcoll = ui.preview_collections["main"]
+                # We must use a unique key or clear the old one to force reload?
+                # pcoll.load() checks if key exists.
+                # If we use "thumbnail", we should remove it first?
+                # bpy.utils.previews doesn't support explicit removal of single item easily?
+                # Actually, we can just use the filepath as the key?
+                # But then we accumulate previews.
+                # So we should clear the collection?
+                # pcoll.clear() clears ALL previews. If we only have "thumbnail", it's fine.
+                pcoll.clear()
+                pcoll.load("thumbnail", filepath, 'IMAGE')
+        except Exception as e:
+            print(f"Preview Collection Error: {e}")
+        
         # Force UI redraw
         for window in context.window_manager.windows:
             for area in window.screen.areas:

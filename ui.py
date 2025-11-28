@@ -1,5 +1,8 @@
 import bpy
+import bpy.utils.previews
 import os
+
+preview_collections = {}
 
 class RENDER_UL_render_cue_jobs(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
@@ -120,8 +123,14 @@ class RenderCuePanelMixin:
                 box.separator()
                 box.label(text="Last Rendered Frame:", icon='IMAGE_DATA')
                 col = box.column()
-                # Revert to template_ID_preview to fix crash. template_image requires image_user.
-                col.template_ID_preview(settings, "preview_image", rows=4, cols=6)
+                # Use template_icon with custom preview to show just the image
+                # The preview is loaded into 'main' collection with key 'thumbnail'
+                pcoll = preview_collections.get("main")
+                if pcoll and "thumbnail" in pcoll:
+                    # Scale 8.0 gives roughly 128px (16 * 8)
+                    col.template_icon(icon_value=pcoll["thumbnail"].icon_id, scale=8.0)
+                else:
+                    col.label(text="No Preview Available")
             
             # Control Buttons - IMPORTANT: Draw these BEFORE disabling layout!
             box.separator()
@@ -364,12 +373,21 @@ def register():
     # Register Status Bar
     bpy.types.STATUSBAR_HT_header.append(draw_status_bar)
 
+    # Register Previews
+    pcoll = bpy.utils.previews.new()
+    preview_collections["main"] = pcoll
+
 def unregister():
     # Unregister Status Bar
     try:
         bpy.types.STATUSBAR_HT_header.remove(draw_status_bar)
     except (AttributeError, ValueError):
         pass
+    
+    # Unregister Previews
+    for pcoll in preview_collections.values():
+        bpy.utils.previews.remove(pcoll)
+    preview_collections.clear()
     
     for cls in (
         RENDERCUE_OT_clear_status,
