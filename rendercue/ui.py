@@ -5,6 +5,7 @@ import os
 preview_collections = {}
 
 class RENDER_UL_render_cue_jobs(bpy.types.UIList):
+    """UI List for displaying render jobs."""
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         # item is RenderCueJob
         if not item.scene:
@@ -94,6 +95,7 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
             row.label(text=f"Samples: {samples}")
 
 class RenderCuePanelMixin:
+    """Mixin class for shared panel drawing logic."""
     bl_label = "RenderCue"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
@@ -240,7 +242,7 @@ class RenderCuePanelMixin:
                     col.separator()
                     return col
                 return None
-
+            
             # Group: Output
             col = draw_collapsible_box(parent_col, settings, "ui_show_output", "Output", 'FILE_FOLDER', is_active=job.override_output)
             
@@ -272,7 +274,7 @@ class RenderCuePanelMixin:
                     op.target_property = "job_output_path"
                     
                 col.separator()
-
+            
             # Group: Dimensions
             is_dim_active = job.override_frame_range or job.override_resolution
             col = draw_collapsible_box(parent_col, settings, "ui_show_dimensions", "Dimensions", 'CON_SIZELIKE', is_active=is_dim_active)
@@ -319,7 +321,7 @@ class RenderCuePanelMixin:
                     sub_col.prop(job, "resolution_scale", text="Scale %")
                     
                 col.separator()
-
+            
             # Group: Format
             col = draw_collapsible_box(parent_col, settings, "ui_show_format", "Format", 'IMAGE_DATA', is_active=job.override_format)
             
@@ -342,7 +344,7 @@ class RenderCuePanelMixin:
                     sub_col.prop(job, "render_format", text="File Format")
                     
                 col.separator()
-
+            
             # Group: Render
             is_render_active = job.override_engine or job.override_samples or job.override_view_layer
             col = draw_collapsible_box(parent_col, settings, "ui_show_render", "Render", 'RESTRICT_RENDER_OFF', is_active=is_render_active)
@@ -419,6 +421,7 @@ class RenderCuePanelMixin:
         row.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="START RENDER QUEUE")
 
 class RENDERCUE_MT_presets_menu(bpy.types.Menu):
+    """Menu for RenderCue presets."""
     bl_label = "Presets"
     bl_idname = "RENDERCUE_MT_presets_menu"
 
@@ -433,12 +436,14 @@ class RENDERCUE_MT_presets_menu(bpy.types.Menu):
         layout.operator("rendercue.load_preset", icon='FILE_FOLDER')
 
 class RENDER_PT_render_cue(RenderCuePanelMixin, bpy.types.Panel):
+    """Main RenderCue panel in the Render properties tab."""
     bl_idname = "RENDER_PT_render_cue"
     bl_space_type = 'PROPERTIES'
     bl_region_type = 'WINDOW'
     bl_context = "render"
 
 class RENDER_PT_render_cue_dashboard(RenderCuePanelMixin, bpy.types.Panel):
+    """Dashboard panel for monitoring render progress."""
     bl_label = "Dashboard"
     bl_idname = "RENDER_PT_render_cue_dashboard"
     bl_parent_id = "RENDER_PT_render_cue"
@@ -476,6 +481,7 @@ class RENDER_PT_render_cue_dashboard(RenderCuePanelMixin, bpy.types.Panel):
                 layout.label(text="Idle", icon='SLEEP')
 
 class VIEW3D_PT_render_cue(bpy.types.Panel):
+    """RenderCue panel in the 3D Viewport sidebar."""
     bl_idname = "VIEW3D_PT_render_cue"
     bl_label = "RenderCue"
     bl_space_type = 'VIEW_3D'
@@ -487,6 +493,7 @@ class VIEW3D_PT_render_cue(bpy.types.Panel):
         RenderCuePanelMixin.draw(self, context)
 
 class RENDERCUE_OT_clear_status(bpy.types.Operator):
+    """Clear the last render status message."""
     bl_idname = "rendercue.clear_status"
     bl_label = "Clear Status"
     bl_description = "Clear the last render status message"
@@ -497,6 +504,7 @@ class RENDERCUE_OT_clear_status(bpy.types.Operator):
         return {'FINISHED'}
 
 def draw_status_bar(self, context):
+    """Draw RenderCue status in the Blender status bar."""
     settings = context.window_manager.rendercue
     if settings.is_rendering:
         self.layout.label(text=f"RenderCue: {settings.progress_message} | ETR: {settings.etr}", icon='RENDER_ANIMATION')

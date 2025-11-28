@@ -2,14 +2,17 @@ import bpy
 import os
 import json
 from .core import StateManager
+from .constants import PAUSE_SIGNAL_FILENAME
 
 class RENDERCUE_OT_add_job(bpy.types.Operator):
+    """Add the current active scene to the render queue."""
     bl_idname = "rendercue.add_job"
     bl_label = "Add Scene"
     bl_description = "Add the current active scene to the render queue"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
+        """Execute the operator."""
         # Register handlers if not already registered
         StateManager.register_handlers()
         
@@ -23,6 +26,7 @@ class RENDERCUE_OT_add_job(bpy.types.Operator):
         return {'FINISHED'}
 
 class RENDERCUE_OT_remove_job(bpy.types.Operator):
+    """Remove the currently selected job from the queue."""
     bl_idname = "rendercue.remove_job"
     bl_label = "Remove Job"
     bl_description = "Remove the currently selected job from the queue"
@@ -30,9 +34,11 @@ class RENDERCUE_OT_remove_job(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
+        """Check if operator can run."""
         return context.window_manager.rendercue.jobs and context.window_manager.rendercue.active_job_index >= 0
 
     def execute(self, context):
+        """Execute the operator."""
         settings = context.window_manager.rendercue
         
         settings.jobs.remove(settings.active_job_index)
@@ -43,6 +49,7 @@ class RENDERCUE_OT_remove_job(bpy.types.Operator):
         return {'FINISHED'}
 
 class RENDERCUE_OT_move_job(bpy.types.Operator):
+    """Move the selected job up or down in the list."""
     bl_idname = "rendercue.move_job"
     bl_label = "Move Job"
     bl_description = "Move the selected job up or down in the list"
@@ -52,9 +59,11 @@ class RENDERCUE_OT_move_job(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
+        """Check if operator can run."""
         return context.window_manager.rendercue.jobs and context.window_manager.rendercue.active_job_index >= 0
 
     def execute(self, context):
+        """Execute the operator."""
         settings = context.window_manager.rendercue
         idx = settings.active_job_index
         
@@ -68,12 +77,14 @@ class RENDERCUE_OT_move_job(bpy.types.Operator):
         return {'FINISHED'}
 
 class RENDERCUE_OT_populate_all(bpy.types.Operator):
+    """Add all scenes in this .blend file to the render queue."""
     bl_idname = "rendercue.populate_all"
     bl_label = "Add All Scenes"
     bl_description = "Add all scenes in this .blend file to the render queue"
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
+        """Execute the operator."""
         # Register handlers
         StateManager.register_handlers()
         
@@ -90,6 +101,7 @@ class RENDERCUE_OT_populate_all(bpy.types.Operator):
         return {'FINISHED'}
 
 class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
+    """Apply a specific override setting to all jobs in the queue."""
     bl_idname = "rendercue.apply_override_to_all"
     bl_label = "Apply to All Jobs"
     bl_description = "Apply this specific override setting to all jobs in the queue"
@@ -100,9 +112,11 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
 
     @classmethod
     def poll(cls, context):
+        """Check if operator can run."""
         return context.window_manager.rendercue.jobs and context.window_manager.rendercue.active_job_index >= 0
 
     def execute(self, context):
+        """Execute the operator."""
         settings = context.window_manager.rendercue
         
         if not settings.jobs:
@@ -135,11 +149,13 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
         return {'FINISHED'}
 
 class RENDERCUE_OT_open_output_folder(bpy.types.Operator):
+    """Open the global output directory in the OS file explorer."""
     bl_idname = "rendercue.open_output_folder"
     bl_label = "Open Output Folder"
     bl_description = "Open the global output directory in your operating system's file explorer"
     
     def execute(self, context):
+        """Execute the operator."""
         settings = context.window_manager.rendercue
         path = bpy.path.abspath(settings.global_output_path)
         
@@ -151,11 +167,13 @@ class RENDERCUE_OT_open_output_folder(bpy.types.Operator):
         return {'FINISHED'}
 
 class RENDERCUE_OT_validate_queue(bpy.types.Operator):
+    """Check the queue for common errors before rendering."""
     bl_idname = "rendercue.validate_queue"
     bl_label = "Validate Queue"
     bl_description = "Check the queue for common errors (missing cameras, invalid paths, unsaved files) before rendering"
     
     def execute(self, context):
+        """Execute the operator."""
         settings = context.window_manager.rendercue
         errors = []
         
@@ -167,7 +185,7 @@ class RENDERCUE_OT_validate_queue(bpy.types.Operator):
             if not os.path.exists(path):
                 try:
                     os.makedirs(path)
-                except:
+                except OSError:
                     errors.append(f"Cannot create output directory: {path}")
         
         # Check Jobs
@@ -190,6 +208,7 @@ class RENDERCUE_OT_validate_queue(bpy.types.Operator):
         return {'FINISHED'}
 
 class RENDERCUE_OT_save_preset(bpy.types.Operator):
+    """Save the current queue configuration to a JSON preset file."""
     bl_idname = "rendercue.save_preset"
     bl_label = "Save Preset"
     bl_description = "Save the current queue configuration (jobs and overrides) to a JSON preset file"
@@ -198,10 +217,12 @@ class RENDERCUE_OT_save_preset(bpy.types.Operator):
     filter_glob: bpy.props.StringProperty(default="*.json", options={'HIDDEN'})
     
     def invoke(self, context, event):
+        """Invoke the file selector."""
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
         
     def execute(self, context):
+        """Execute the operator."""
         if not self.filepath.endswith(".json"):
             self.filepath += ".json"
             
@@ -210,6 +231,7 @@ class RENDERCUE_OT_save_preset(bpy.types.Operator):
         return {'FINISHED'}
 
 class RENDERCUE_OT_load_preset(bpy.types.Operator):
+    """Load a queue configuration from a JSON preset file."""
     bl_idname = "rendercue.load_preset"
     bl_label = "Load Preset"
     bl_description = "Load a queue configuration from a saved JSON preset file (replaces current queue)"
@@ -218,10 +240,12 @@ class RENDERCUE_OT_load_preset(bpy.types.Operator):
     filter_glob: bpy.props.StringProperty(default="*.json", options={'HIDDEN'})
     
     def invoke(self, context, event):
+        """Invoke the file selector."""
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
         
     def execute(self, context):
+        """Execute the operator."""
         if StateManager.load_state(context, self.filepath):
             self.report({'INFO'}, "Preset loaded successfully")
             return {'FINISHED'}
@@ -230,6 +254,7 @@ class RENDERCUE_OT_load_preset(bpy.types.Operator):
             return {'CANCELLED'}
 
 class RENDERCUE_OT_quick_preset(bpy.types.Operator):
+    """Apply a quick quality preset to all jobs."""
     bl_idname = "rendercue.quick_preset"
     bl_label = "Quick Preset"
     bl_description = "Apply a quick quality preset to all jobs"
@@ -242,6 +267,7 @@ class RENDERCUE_OT_quick_preset(bpy.types.Operator):
     )
     
     def execute(self, context):
+        """Execute the operator."""
         settings = context.window_manager.rendercue
         
         if not settings.jobs:
@@ -269,6 +295,7 @@ class RENDERCUE_OT_quick_preset(bpy.types.Operator):
         return {'FINISHED'}
 
 class RENDERCUE_OT_switch_to_job_scene(bpy.types.Operator):
+    """Switch the current window to the selected job's scene."""
     bl_idname = "rendercue.switch_to_job_scene"
     bl_label = "Switch to Scene"
     bl_description = "Switch the current window to this job's scene"
@@ -276,6 +303,7 @@ class RENDERCUE_OT_switch_to_job_scene(bpy.types.Operator):
     index: bpy.props.IntProperty()
     
     def execute(self, context):
+        """Execute the operator."""
         settings = context.window_manager.rendercue
         if self.index < 0 or self.index >= len(settings.jobs):
             return {'CANCELLED'}
@@ -306,48 +334,55 @@ class RENDERCUE_OT_switch_to_job_scene(bpy.types.Operator):
         return {'FINISHED'}
 
 class RENDERCUE_OT_stop_render(bpy.types.Operator):
+    """Stop the current render process."""
     bl_idname = "rendercue.stop_render"
     bl_label = "Stop Render"
     bl_description = "Stop the current render process"
     
     def execute(self, context):
+        """Execute the operator."""
         context.window_manager.rendercue.stop_requested = True
         self.report({'INFO'}, "Stopping render...")
         return {'FINISHED'}
 
 class RENDERCUE_OT_pause_render(bpy.types.Operator):
+    """Pause the current render process."""
     bl_idname = "rendercue.pause_render"
     bl_label = "Pause Render"
     bl_description = "Pause the current render process"
     
     def execute(self, context):
+        """Execute the operator."""
         context.window_manager.rendercue.is_paused = True
         # Create pause signal file
-        pause_file = os.path.join(bpy.app.tempdir, "rendercue_pause.signal")
+        pause_file = os.path.join(bpy.app.tempdir, PAUSE_SIGNAL_FILENAME)
         try:
             with open(pause_file, 'w') as f:
                 f.write("PAUSE")
-        except:
+        except OSError:
             pass
         return {'FINISHED'}
 
 class RENDERCUE_OT_resume_render(bpy.types.Operator):
+    """Resume the current render process."""
     bl_idname = "rendercue.resume_render"
     bl_label = "Resume Render"
     bl_description = "Resume the current render process"
     
     def execute(self, context):
+        """Execute the operator."""
         context.window_manager.rendercue.is_paused = False
         # Remove pause signal file
-        pause_file = os.path.join(bpy.app.tempdir, "rendercue_pause.signal")
+        pause_file = os.path.join(bpy.app.tempdir, PAUSE_SIGNAL_FILENAME)
         if os.path.exists(pause_file):
             try:
                 os.remove(pause_file)
-            except:
+            except OSError:
                 pass
         return {'FINISHED'}
 
 class RENDERCUE_OT_browse_path(bpy.types.Operator):
+    """Browse for a directory path."""
     bl_idname = "rendercue.browse_path"
     bl_label = "Browse"
     bl_description = "Browse for directory"
@@ -356,6 +391,7 @@ class RENDERCUE_OT_browse_path(bpy.types.Operator):
     target_property: bpy.props.StringProperty()
     
     def execute(self, context):
+        """Execute the operator."""
         settings = context.window_manager.rendercue
         if self.filepath:
             if self.target_property == "global_output_path":
@@ -366,15 +402,18 @@ class RENDERCUE_OT_browse_path(bpy.types.Operator):
         return {'FINISHED'}
 
     def invoke(self, context, event):
+        """Invoke the file selector."""
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
 class RENDERCUE_OT_load_data(bpy.types.Operator):
+    """Load saved RenderCue data from this blend file."""
     bl_idname = "rendercue.load_data"
     bl_label = "Load RenderCue Data"
     bl_description = "Load saved RenderCue data from this blend file"
     
     def execute(self, context):
+        """Execute the operator."""
         StateManager.register_handlers()
         StateManager.load_queue_from_text(context)
         self.report({'INFO'}, "RenderCue data loaded")
@@ -398,8 +437,6 @@ classes = (
     RENDERCUE_OT_browse_path,
     RENDERCUE_OT_load_data,
 )
-
-
 
 def register():
     for cls in classes:

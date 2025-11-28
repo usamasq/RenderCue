@@ -7,6 +7,12 @@ import sys
 import atexit
 from .core import StateManager, RenderCueLogger
 from .notifications import send_webhook, show_toast
+from .constants import (
+    MANIFEST_FILENAME, STATUS_FILENAME, PAUSE_SIGNAL_FILENAME,
+    STATUS_MESSAGE, STATUS_ETR, STATUS_JOB_INDEX, STATUS_FINISHED_FRAMES,
+    STATUS_TOTAL_FRAMES, STATUS_LAST_FRAME, STATUS_ERROR,
+    DEFAULT_PROGRESS_MESSAGE, DEFAULT_ETR
+)
 
 # Global reference for atexit
 _bg_process = None
@@ -16,13 +22,14 @@ def cleanup_process():
     if _bg_process:
         try:
             _bg_process.kill()
-        except:
+        except OSError:
             pass
 
 atexit.register(cleanup_process)
 
 class RENDERCUE_OT_batch_render(bpy.types.Operator):
-
+    """Start background rendering of all jobs in the queue. Blender will remain responsive."""
+    
     bl_idname = "rendercue.batch_render"
     bl_label = "Render Cue"
     bl_description = "Start background rendering of all jobs in the queue. Blender will remain responsive."
@@ -42,6 +49,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
     _manifest_file = None
 
     def modal(self, context, event):
+        """Handle modal events (timer ticks) to check render progress."""
         if event.type == 'TIMER':
             # Check for Stop Request
             if context.window_manager.rendercue.stop_requested:
@@ -66,34 +74,35 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                     try:
                         with open(self._status_file, 'r') as f:
                             status = json.load(f)
-                            context.window_manager.rendercue.progress_message = status.get("message", "Rendering...")
-                            context.window_manager.rendercue.etr = status.get("etr", "--:--")
-                            context.window_manager.rendercue.current_job_index = status.get("job_index", 0)
-                            context.window_manager.rendercue.finished_frames_count = status.get("finished_frames", 0)
-                            context.window_manager.rendercue.total_frames_to_render = status.get("total_frames", 0)
-                            last_frame = status.get("last_frame", "")
+                            context.window_manager.rendercue.progress_message = status.get(STATUS_MESSAGE, DEFAULT_PROGRESS_MESSAGE)
+                            context.window_manager.rendercue.etr = status.get(STATUS_ETR, DEFAULT_ETR)
+                            context.window_manager.rendercue.current_job_index = status.get(STATUS_JOB_INDEX, 0)
+                            context.window_manager.rendercue.finished_frames_count = status.get(STATUS_FINISHED_FRAMES, 0)
+                            context.window_manager.rendercue.total_frames_to_render = status.get(STATUS_TOTAL_FRAMES, 0)
+                            last_frame = status.get(STATUS_LAST_FRAME, "")
                             context.window_manager.rendercue.last_rendered_frame = last_frame
                             
                             if last_frame:
                                 self.update_preview(context, last_frame)
                             
-                            if status.get("error"):
-                                self.report({'ERROR'}, status["error"])
+                            if status.get(STATUS_ERROR):
+                                self.report({'ERROR'}, status[STATUS_ERROR])
                                 context.window_manager.rendercue.last_render_status = 'FAILED'
-                                context.window_manager.rendercue.last_render_message = f"Error: {status['error']}"
+                                context.window_manager.rendercue.last_render_message = f"Error: {status[STATUS_ERROR]}"
                                 
                                 prefs = context.preferences.addons[__package__].preferences
                                 if prefs.show_notifications:
-                                    show_toast("RenderCue Error", status['error'])
+                                    show_toast("RenderCue Error", status[STATUS_ERROR])
                                     
                                 self._stop = True
-                    except:
+                    except (OSError, json.JSONDecodeError):
                         pass
                 return {'PASS_THROUGH'}
 
         return {'PASS_THROUGH'}
 
     def execute(self, context):
+        """Initialize and start the background render process."""
         wm = context.window_manager
         if not context.window_manager.rendercue.jobs:
             self.report({'WARNING'}, "Queue is empty")
@@ -105,15 +114,15 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             
         # Setup Paths
         temp_dir = bpy.app.tempdir
-        self._manifest_file = os.path.join(temp_dir, "rendercue_manifest.json")
-        self._status_file = os.path.join(temp_dir, "rendercue_status.json")
+        self._manifest_file = os.path.join(temp_dir, MANIFEST_FILENAME)
+        self._status_file = os.path.join(temp_dir, STATUS_FILENAME)
         
         # Cleanup old pause signal
-        pause_file = os.path.join(temp_dir, "rendercue_pause.signal")
+        pause_file = os.path.join(temp_dir, PAUSE_SIGNAL_FILENAME)
         if os.path.exists(pause_file):
             try:
                 os.remove(pause_file)
-            except:
+            except OSError:
                 pass
         
         # Reset Pause State
@@ -150,6 +159,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         return {'RUNNING_MODAL'}
 
     def finish(self, context):
+        """Clean up after rendering finishes (success or failure)."""
         wm = context.window_manager
         
         # Clean up progress bar
@@ -164,10 +174,8 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         # Reset UI State
         context.window_manager.rendercue.is_rendering = False
         context.window_manager.rendercue.progress_message = "Done"
-        context.window_manager.rendercue.etr = "--:--"
+        context.window_manager.rendercue.etr = DEFAULT_ETR
         
-
-            
         # Webhook Notification
         prefs = context.preferences.addons[__package__].preferences
         if prefs.webhook_url:
@@ -200,6 +208,12 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             context.window_manager.rendercue.last_render_message = "Finished successfully"
 
     def update_preview(self, context, filepath):
+        """Update the preview image in the UI.
+
+        Args:
+            context (bpy.types.Context): Blender context.
+            filepath (str): Path to the preview image file.
+        """
         if not filepath or not os.path.exists(filepath):
             return
             
@@ -211,7 +225,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             try:
                 img = bpy.data.images.load(filepath)
                 img.name = image_name
-            except:
+            except RuntimeError:
                 return
         else:
             if img.filepath != filepath:
@@ -227,14 +241,6 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             from . import ui
             if "main" in ui.preview_collections:
                 pcoll = ui.preview_collections["main"]
-                # We must use a unique key or clear the old one to force reload?
-                # pcoll.load() checks if key exists.
-                # If we use "thumbnail", we should remove it first?
-                # bpy.utils.previews doesn't support explicit removal of single item easily?
-                # Actually, we can just use the filepath as the key?
-                # But then we accumulate previews.
-                # So we should clear the collection?
-                # pcoll.clear() clears ALL previews. If we only have "thumbnail", it's fine.
                 pcoll.clear()
                 pcoll.load("thumbnail", filepath, 'IMAGE')
         except Exception as e:

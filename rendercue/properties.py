@@ -1,6 +1,7 @@
 import bpy
 
 class RenderCueJob(bpy.types.PropertyGroup):
+    """Property group defining a single render job."""
     scene: bpy.props.PointerProperty(
         type=bpy.types.Scene,
         name="Scene",
@@ -132,6 +133,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
     )
 
 class RenderCueSettings(bpy.types.PropertyGroup):
+    """Global settings and state for the RenderCue addon."""
     jobs: bpy.props.CollectionProperty(type=RenderCueJob, options={'SKIP_SAVE'})
     active_job_index: bpy.props.IntProperty(name="Active Job Index", default=0, options={'SKIP_SAVE'})
     
@@ -151,16 +153,6 @@ class RenderCueSettings(bpy.types.PropertyGroup):
         # subtype='DIR_PATH', # Removed to prevent red highlight
         default="//render_cue_output/",
         description="Base directory for batch renders",
-        options={'SKIP_SAVE'}
-    )
-
-
-    
-    presets_path: bpy.props.StringProperty(
-        name="Presets Path",
-        subtype='DIR_PATH',
-        default="//presets/",
-        description="Directory where render queue presets are saved and loaded from",
         options={'SKIP_SAVE'}
     )
 
@@ -246,8 +238,6 @@ class RenderCueSettings(bpy.types.PropertyGroup):
         options={'SKIP_SAVE'}
     )
     
-
-
     last_render_status: bpy.props.EnumProperty(
         name="Last Render Status",
         items=[

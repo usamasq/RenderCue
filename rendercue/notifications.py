@@ -3,9 +3,21 @@ import subprocess
 import sys
 import bpy
 
+import json
+import subprocess
+import sys
+import bpy
+
 def send_webhook(url, message, title="RenderCue Notification", color=0x00ff00):
-    """
-    Send a Discord/Slack compatible webhook using a subprocess to avoid blocking Blender.
+    """Send a Discord/Slack compatible webhook using a subprocess.
+
+    This function runs asynchronously to avoid blocking the Blender UI.
+
+    Args:
+        url (str): The webhook URL.
+        message (str): The message content.
+        title (str, optional): The title of the embed. Defaults to "RenderCue Notification".
+        color (int, optional): The color of the embed. Defaults to 0x00ff00 (Green).
     """
     if not url:
         return
@@ -46,20 +58,24 @@ try:
     data = json.dumps(payload).encode('utf-8')
     with urllib.request.urlopen(req, data=data) as response:
         pass
-except Exception as e:
+except Exception:
     pass
 """
     
     try:
         # Run asynchronously
         subprocess.Popen([sys.executable, "-c", script])
-    except Exception as e:
+    except OSError as e:
         print(f"RenderCue: Failed to trigger webhook subprocess: {e}")
 
 def show_toast(title, message):
-    """
-    Show a native Windows toast notification using PowerShell via subprocess.
-    Only works on Windows.
+    """Show a native Windows toast notification using PowerShell.
+
+    This function runs asynchronously and only works on Windows.
+
+    Args:
+        title (str): The title of the notification.
+        message (str): The message content.
     """
     if sys.platform != 'win32':
         return
@@ -78,6 +94,6 @@ def show_toast(title, message):
     try:
         # Run asynchronously
         subprocess.Popen(["powershell", "-Command", ps_script], creationflags=subprocess.CREATE_NO_WINDOW)
-    except Exception as e:
+    except OSError as e:
         print(f"RenderCue: Failed to show toast: {e}")
 

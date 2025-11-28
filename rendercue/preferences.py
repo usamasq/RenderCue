@@ -1,11 +1,10 @@
 import bpy
 
 class RenderCuePreferences(bpy.types.AddonPreferences):
+    """Addon preferences for RenderCue."""
     bl_idname = __package__
     
     # Preference properties
-
-    
     webhook_url: bpy.props.StringProperty(
         name="Webhook URL",
         description="Enter a Discord or Slack Webhook URL to receive notifications when renders complete or fail",
@@ -17,8 +16,6 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         description="Show a system notification when a render batch completes or fails",
         default=True
     )
-    
-
     
     def draw(self, context):
         layout = self.layout
@@ -38,16 +35,12 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         layout.separator()
         
         # Preferences
-
-        
         layout.separator()
         layout.label(text="Notifications:")
         layout.prop(self, "show_notifications")
         layout.prop(self, "webhook_url")
         
         layout.separator()
-
-        
         layout.separator()
         
         # Tips
