@@ -15,10 +15,10 @@ jobs:
 
       - name: Create Release Zip
         run: |
-          # Zip the rendercue folder
-          # -r: recursive
-          # The zip file will contain the 'rendercue' folder at the root
-          zip -r RenderCue-${{ github.ref_name }}.zip rendercue
+          # Zip the CONTENTS of the rendercue folder (flat structure)
+          # This places blender_manifest.toml at the root of the zip
+          cd rendercue
+          zip -r ../RenderCue-${{ github.ref_name }}.zip .
 
       - name: Upload Release Asset
         uses: softprops/action-gh-release@v1
