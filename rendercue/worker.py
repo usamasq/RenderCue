@@ -175,7 +175,7 @@ class BackgroundWorker:
         bpy.app.handlers.render_post.append(self.on_render_post)
         
         global_output = self.manifest.get("global_output_path", "//")
-        use_custom_output_path = self.manifest.get("use_custom_output_path", False)
+        output_location = self.manifest.get("output_location", "BLEND")
         
         # Pre-calculate scene usage for unique folder naming
         scene_usage_count = {}
@@ -212,7 +212,7 @@ class BackgroundWorker:
                 output_dir = job["output_path"]
             else:
                 # Determine Base Path
-                if use_custom_output_path:
+                if output_location == 'CUSTOM':
                     base_path = global_output
                 else:
                     base_path = "//"

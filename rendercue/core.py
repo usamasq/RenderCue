@@ -43,7 +43,7 @@ class StateManager:
         data = {
             "timestamp": time.time(),
             "global_output_path": settings.global_output_path,
-            "use_custom_output_path": settings.use_custom_output_path,
+            "output_location": settings.output_location,
             "jobs": []
         }
         
@@ -92,7 +92,7 @@ class StateManager:
             settings.jobs.clear()
             
             settings.global_output_path = data.get("global_output_path", settings.global_output_path)
-            settings.use_custom_output_path = data.get("use_custom_output_path", False)
+            settings.output_location = data.get("output_location", 'BLEND')
             
             for job_data in data.get("jobs", []):
                 job = settings.jobs.add()
@@ -133,7 +133,7 @@ class StateManager:
         settings = context.window_manager.rendercue
         data = {
             "global_output_path": settings.global_output_path,
-            "use_custom_output_path": settings.use_custom_output_path,
+            "output_location": settings.output_location,
             "jobs": []
         }
         
@@ -180,7 +180,7 @@ class StateManager:
             settings.jobs.clear()
             
             settings.global_output_path = data.get("global_output_path", settings.global_output_path)
-            settings.use_custom_output_path = data.get("use_custom_output_path", False)
+            settings.output_location = data.get("output_location", 'BLEND')
             
             for job_data in data.get("jobs", []):
                 job = settings.jobs.add()

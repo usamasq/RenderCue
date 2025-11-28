@@ -104,9 +104,6 @@ class RenderCuePanelMixin:
         wm = context.window_manager
         settings = context.window_manager.rendercue
         
-
-        
-        
         # Progress Indicator
         if settings.is_rendering:
             box = layout.box()
@@ -143,7 +140,6 @@ class RenderCuePanelMixin:
                 row.operator("rendercue.pause_render", icon='PAUSE', text="Pause")
                 
             row.operator("rendercue.stop_render", icon='CANCEL', text="Stop")
-            
             
             # Return early - don't draw the job queue UI below
             return
@@ -182,23 +178,21 @@ class RenderCuePanelMixin:
         col.use_property_split = True
         col.use_property_decorate = False
         
-        # Toggle: Same as Blend vs Custom
-        col.prop(settings, "use_custom_output_path", text="Custom Output Path")
+        # Location Selector
+        col.prop(settings, "output_location", expand=True)
         
-        if settings.use_custom_output_path:
+        if settings.output_location == 'CUSTOM':
             # Custom Path Input
-            row = col.row(align=True)
-            row.prop(settings, "global_output_path", text="Path")
-            # Browse Button
-            op = row.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
-            op.target_property = "global_output_path"
+            col.prop(settings, "global_output_path", text="Path")
         else:
             # Informative Label for Default
-            col.label(text="Base Path: // (Same as .blend file)", icon='FILE_BLEND')
+            row = col.row()
+            row.label(text="Base Path: // (Same as .blend file)", icon='FILE_BLEND')
             
         # Informative Label for Structure
         col.separator()
-        col.label(text="Structure: [Base Path] / [Scene Name] /", icon='INFO')
+        row = col.row()
+        row.label(text="Structure: [Base Path] / [Scene Name] /", icon='INFO')
         
         # Selected Job Settings (Overrides)
         if settings.jobs and settings.active_job_index >= 0 and len(settings.jobs) > settings.active_job_index:
@@ -212,79 +206,98 @@ class RenderCuePanelMixin:
             
             # Use a cleaner layout for overrides
             col = box.column(align=True)
-            col.use_property_split = False
+            col.use_property_split = True
             col.use_property_decorate = False
             
             # Helper to draw override with "Apply to All"
-            def draw_override_row(prop_bool, prop_val, name, data_path_bool, data_path_val):
+            def draw_override_row(prop_bool, prop_val, name, data_path_bool, data_path_val, search_prop=None, search_data=None):
                 row = col.row(align=True)
-                # Checkbox
+                # Checkbox + Label
                 row.prop(job, prop_bool, text=name)
                 
-                # Value (only if enabled)
+                # Apply to All Button (Next to checkbox for quick access)
                 sub = row.row(align=True)
-                sub.active = getattr(job, prop_bool)
-                sub.prop(job, prop_val, text="")
-                
-                # Apply to All Button
-                op = row.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+                sub.scale_x = 0.8
+                op = sub.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
                 op.data_path_bool = data_path_bool
                 op.data_path_val = data_path_val
+                
+                # Value (Conditional Visibility)
+                if getattr(job, prop_bool):
+                    row = col.row(align=True)
+                    if search_prop and search_data:
+                         row.prop_search(job, prop_val, search_data, search_prop, text="Value")
+                    else:
+                        row.prop(job, prop_val, text="Value")
 
-            # Output Override with Browse Button
+            # Group: Output
+            col.label(text="Output", icon='FILE_FOLDER')
+            
+            # Output Override
             row = col.row(align=True)
-            row.prop(job, "override_output", text="Output")
-            
-            sub = row.row(align=True)
-            sub.active = job.override_output
-            sub.prop(job, "output_path", text="")
-            
-            # Browse Button
-            op = sub.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
-            op.target_property = "job_output_path"
+            row.prop(job, "override_output", text="Output Path")
             
             # Apply to All
-            op = row.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+            sub = row.row(align=True)
+            sub.scale_x = 0.8
+            op = sub.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
             op.data_path_bool = "override_output"
             op.data_path_val = "output_path"
             
-            # Frame Range (Special handling)
+            if job.override_output:
+                row = col.row(align=True)
+                row.prop(job, "output_path", text="Path")
+                # Browse Button
+                sub = row.row(align=True)
+                sub.scale_x = 1.0
+                op = sub.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
+                op.target_property = "job_output_path"
+            
+            col.separator()
+
+            # Group: Dimensions
+            col.label(text="Dimensions", icon='RULER')
+
+            # Frame Range
             row = col.row(align=True)
             row.prop(job, "override_frame_range", text="Frame Range")
-            sub = row.row(align=True)
-            sub.active = job.override_frame_range
-            sub.prop(job, "frame_start", text="Start")
-            sub.prop(job, "frame_end", text="End")
             
-            op = row.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+            sub = row.row(align=True)
+            sub.scale_x = 0.8
+            op = sub.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
             op.data_path_bool = "override_frame_range"
             op.data_path_val = "frame_range"
+            
+            if job.override_frame_range:
+                row = col.row(align=True)
+                row.prop(job, "frame_start", text="Start")
+                row.prop(job, "frame_end", text="End")
 
             # Resolution
-            draw_override_row("override_resolution", "resolution_scale", "Resolution %", "override_resolution", "resolution_scale")
+            draw_override_row("override_resolution", "resolution_scale", "Resolution", "override_resolution", "resolution_scale")
+            
+            col.separator()
+
+            # Group: Format
+            col.label(text="Format", icon='IMAGE_DATA')
             
             # Format
-            draw_override_row("override_format", "render_format", "Format", "override_format", "render_format")
+            draw_override_row("override_format", "render_format", "File Format", "override_format", "render_format")
             
-            # Samples
-            draw_override_row("override_samples", "samples", "Samples", "override_samples", "samples")
+            col.separator()
+
+            # Group: Render
+            col.label(text="Render", icon='RESTRICT_RENDER_OFF')
 
             # Render Engine
             draw_override_row("override_engine", "render_engine", "Engine", "override_engine", "render_engine")
 
-            # View Layer (Smart Dropdown)
+            # Samples
+            draw_override_row("override_samples", "samples", "Samples", "override_samples", "samples")
+
+            # View Layer
             if job.scene and len(job.scene.view_layers) > 1:
-                row = col.row(align=True)
-                row.prop(job, "override_view_layer", text="View Layer")
-                
-                sub = row.row(align=True)
-                sub.active = job.override_view_layer
-                # Use prop_search to create a dropdown from the scene's view layers
-                sub.prop_search(job, "view_layer", job.scene, "view_layers", text="")
-                
-                op = row.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
-                op.data_path_bool = "override_view_layer"
-                op.data_path_val = "view_layer"
+                draw_override_row("override_view_layer", "view_layer", "View Layer", "override_view_layer", "view_layer", search_prop="view_layers", search_data=job.scene)
             
         layout.separator()
         row = layout.row()
@@ -428,4 +441,3 @@ def unregister():
             bpy.utils.unregister_class(cls)
         except RuntimeError:
             pass
-
