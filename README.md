@@ -22,6 +22,9 @@ RenderCue is a powerful Blender add-on that bridges the gap between Scene Manage
 - **Desktop Notifications**: Get notified when your batch render completes or fails.
 - **Status Bar Integration**: Monitor render progress directly from the status bar.
 
+![Features 1](Features1.jpg)
+![Features 2](Features2.jpg)
+
 ## 📦 Installation
 
 1. Download the latest release zip file.

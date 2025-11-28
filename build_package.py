@@ -28,7 +28,7 @@ def create_package():
         zip_filename, os.path.basename(__file__),
         'task.md', 'audit_report.md', 'implementation_plan.md', 
         'walkthrough.md', 'suggestions.md',
-        'RenderCue.jpg'
+        'RenderCue.jpg', 'Features1.jpg', 'Features2.jpg'
     }
     
     with zipfile.ZipFile(zip_filename, 'w', zipfile.ZIP_DEFLATED) as zipf:
