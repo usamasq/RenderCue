@@ -4,7 +4,7 @@ from . import ui
 from . import operators
 from . import render
 from . import preferences
-from . import updater
+
 
 bl_info = {
     "name": "RenderCue",
@@ -20,7 +20,6 @@ bl_info = {
 
 def register():
     properties.register()
-    updater.register()
     operators.register()
     ui.register()
     render.register()
@@ -31,7 +30,6 @@ def unregister():
     render.unregister()
     ui.unregister()
     operators.unregister()
-    updater.unregister()
     properties.unregister()
 
 if __name__ == "__main__":

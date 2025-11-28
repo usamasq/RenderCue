@@ -149,6 +149,11 @@ class RenderCuePanelMixin:
             return
 
         # Main List
+        if not settings.jobs and bpy.data.texts.get(".rendercue_data"):
+            box = layout.box()
+            box.label(text="Found saved RenderCue data", icon='INFO')
+            box.operator("rendercue.load_data", icon='IMPORT', text="Load Data")
+            
         row = layout.row()
         row.template_list("RENDER_UL_render_cue_jobs", "", settings, "jobs", settings, "active_job_index")
         

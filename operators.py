@@ -10,6 +10,9 @@ class RENDERCUE_OT_add_job(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
+        # Register handlers if not already registered
+        StateManager.register_handlers()
+        
         settings = context.window_manager.rendercue
         
         job = settings.jobs.add()
@@ -71,6 +74,9 @@ class RENDERCUE_OT_populate_all(bpy.types.Operator):
     bl_options = {'REGISTER', 'UNDO'}
 
     def execute(self, context):
+        # Register handlers
+        StateManager.register_handlers()
+        
         settings = context.window_manager.rendercue
         
         existing_scenes = {job.scene for job in settings.jobs if job.scene}
@@ -379,7 +385,19 @@ classes = (
     RENDERCUE_OT_pause_render,
     RENDERCUE_OT_resume_render,
     RENDERCUE_OT_browse_path,
+    RENDERCUE_OT_load_data,
 )
+
+class RENDERCUE_OT_load_data(bpy.types.Operator):
+    bl_idname = "rendercue.load_data"
+    bl_label = "Load RenderCue Data"
+    bl_description = "Load saved RenderCue data from this blend file"
+    
+    def execute(self, context):
+        StateManager.register_handlers()
+        StateManager.load_queue_from_text(context)
+        self.report({'INFO'}, "RenderCue data loaded")
+        return {'FINISHED'}
 
 def register():
     for cls in classes:

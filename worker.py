@@ -5,8 +5,7 @@ import os
 import time
 import argparse
 
-# Add current directory to path to import local modules if needed
-sys.path.append(os.path.dirname(__file__))
+
 
 class BackgroundWorker:
     def __init__(self, manifest_path, status_path):
@@ -275,5 +274,5 @@ def main():
     worker = BackgroundWorker(manifest_path, status_path)
     worker.run()
 
-if __name__ == "__main__":
-    main()
+# Execute main function
+main()

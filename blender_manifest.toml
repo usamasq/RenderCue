@@ -8,14 +8,22 @@ maintainer = "RenderCue Team"
 type = "add-on"
 license = ["SPDX:GPL-3.0-or-later"]
 website = "https://github.com/usamasq/RenderCue"
-tags = ["Render", "Sequencer", "Pipeline"]
+tags = ["Render", "Pipeline"]
 
 blender_version_min = "4.2.0"
 
 # Permissions
 [permissions]
-files = "all" # Needed for saving renders to arbitrary paths
-network = "optional" # For checking updates if implemented later
+files = "Needed to save rendered images and video files to arbitrary user-defined output directories outside the blend file location."
+network = "Required to send render completion notifications to user-configured Webhook URLs (e.g., Discord, Slack)."
 
 [build]
 paths = ["."]
+excludes = [
+    ".gitignore",
+    "build_package.py",
+    "TROUBLESHOOTING.md",
+    "Features1.jpg",
+    "Features2.jpg",
+    "RenderCue.jpg"
+]

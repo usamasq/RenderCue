@@ -208,23 +208,36 @@ class StateManager:
         except Exception as e:
             print(f"Error loading queue from text: {e}")
 
+    @staticmethod
+    def register_handlers():
+        if not _save_pre_handler in bpy.app.handlers.save_pre:
+            bpy.app.handlers.save_pre.append(_save_pre_handler)
+        if not _load_post_handler in bpy.app.handlers.load_post:
+            bpy.app.handlers.load_post.append(_load_post_handler)
+
+    @staticmethod
+    def unregister_handlers():
+        if _save_pre_handler in bpy.app.handlers.save_pre:
+            bpy.app.handlers.save_pre.remove(_save_pre_handler)
+        if _load_post_handler in bpy.app.handlers.load_post:
+            bpy.app.handlers.load_post.remove(_load_post_handler)
+
 from bpy.app.handlers import persistent
 
 @persistent
-def save_pre_handler(dummy):
-    StateManager.save_queue_to_text(bpy.context)
+def _save_pre_handler(dummy):
+    # Only save if there are jobs
+    if bpy.context.window_manager.rendercue.jobs:
+        StateManager.save_queue_to_text(bpy.context)
 
 @persistent
-def load_post_handler(dummy):
+def _load_post_handler(dummy):
     # Use a timer to delay loading slightly to ensure context is ready
     bpy.app.timers.register(lambda: StateManager.load_queue_from_text(bpy.context) or None, first_interval=0.1)
 
 def register():
-    bpy.app.handlers.save_pre.append(save_pre_handler)
-    bpy.app.handlers.load_post.append(load_post_handler)
+    # Don't register handlers by default
+    pass
 
 def unregister():
-    if save_pre_handler in bpy.app.handlers.save_pre:
-        bpy.app.handlers.save_pre.remove(save_pre_handler)
-    if load_post_handler in bpy.app.handlers.load_post:
-        bpy.app.handlers.load_post.remove(load_post_handler)
+    StateManager.unregister_handlers()
