@@ -369,6 +369,17 @@ class RENDERCUE_OT_browse_path(bpy.types.Operator):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
+class RENDERCUE_OT_load_data(bpy.types.Operator):
+    bl_idname = "rendercue.load_data"
+    bl_label = "Load RenderCue Data"
+    bl_description = "Load saved RenderCue data from this blend file"
+    
+    def execute(self, context):
+        StateManager.register_handlers()
+        StateManager.load_queue_from_text(context)
+        self.report({'INFO'}, "RenderCue data loaded")
+        return {'FINISHED'}
+
 classes = (
     RENDERCUE_OT_add_job,
     RENDERCUE_OT_remove_job,
@@ -388,16 +399,7 @@ classes = (
     RENDERCUE_OT_load_data,
 )
 
-class RENDERCUE_OT_load_data(bpy.types.Operator):
-    bl_idname = "rendercue.load_data"
-    bl_label = "Load RenderCue Data"
-    bl_description = "Load saved RenderCue data from this blend file"
-    
-    def execute(self, context):
-        StateManager.register_handlers()
-        StateManager.load_queue_from_text(context)
-        self.report({'INFO'}, "RenderCue data loaded")
-        return {'FINISHED'}
+
 
 def register():
     for cls in classes:
