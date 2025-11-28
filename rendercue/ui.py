@@ -288,9 +288,22 @@ class RenderCuePanelMixin:
             
         layout.separator()
         row = layout.row()
-        row.alignment = 'CENTER'
-        row.scale_y = 2.5 
-        row.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="START RENDER QUEUE")
+        row.scale_y = 2.5
+        
+        # Left Padding
+        sub = row.column()
+        sub.scale_x = 0.1
+        sub.label(text="")
+        
+        # Button
+        sub = row.column()
+        sub.scale_x = 2.0
+        sub.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="START RENDER QUEUE")
+        
+        # Right Padding
+        sub = row.column()
+        sub.scale_x = 0.1
+        sub.label(text="")
 
 class RENDERCUE_MT_presets_menu(bpy.types.Menu):
     bl_label = "Presets"
