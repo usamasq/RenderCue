@@ -9,7 +9,7 @@ from . import preferences
 bl_info = {
     "name": "RenderCue",
     "author": "Usama Bin Shahid",
-    "version": (1, 0, 0),
+    "version": (1, 0, 1),
     "blender": (4, 2, 0),
     "location": "Properties > Render > RenderCue | Video Sequencer > RenderCue | 3D Viewport > RenderCue",
     "description": "Sequence. Queue. Render. Support development: https://www.patreon.com/c/usamasq",
