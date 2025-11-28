@@ -166,14 +166,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         context.window_manager.rendercue.progress_message = "Done"
         context.window_manager.rendercue.etr = "--:--"
         
-        # Sound Notification
-        prefs = context.preferences.addons[__package__].preferences
-        if prefs.play_sound_on_finish:
-            try:
-                import winsound
-                winsound.MessageBeep()
-            except:
-                print('\a') # Fallback beep
+
             
         # Webhook Notification
         if prefs.webhook_url:
