@@ -20,6 +20,7 @@ class BackgroundWorker:
         self.start_time = 0
         self.total_frames_to_render = 0
         self.finished_frames_count = 0
+        self.last_preview_path = ""
         
     def load_manifest(self):
         try:
@@ -33,6 +34,10 @@ class BackgroundWorker:
             return False
 
     def log_status(self, message, etr="--:--", finished=False, error=None, **kwargs):
+        # Update last preview path if provided
+        if "last_frame" in kwargs:
+            self.last_preview_path = kwargs["last_frame"]
+            
         data = {
             "job_index": self.current_job_index + 1, # 1-based for UI
             "total_jobs": self.total_jobs,
@@ -43,7 +48,7 @@ class BackgroundWorker:
             "timestamp": time.time(),
             "finished_frames": self.finished_frames_count,
             "total_frames": self.total_frames_to_render,
-            "last_frame": kwargs.get("last_frame", "")
+            "last_frame": self.last_preview_path
         }
         try:
             with open(self.status_path, 'w') as f:
