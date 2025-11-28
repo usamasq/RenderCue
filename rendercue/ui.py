@@ -214,7 +214,7 @@ class RenderCuePanelMixin:
             col.use_property_decorate = False
             
             # Helper for collapsible group styling
-            def draw_collapsible_box(layout, settings, prop_name, title, icon):
+            def draw_collapsible_box(layout, settings, prop_name, title, icon, is_active=False):
                 box = layout.box()
                 row = box.row(align=True)
                 
@@ -224,14 +224,22 @@ class RenderCuePanelMixin:
                 
                 # Header acts as a button
                 row.prop(settings, prop_name, icon=icon_state, text=title, emboss=False)
-                row.label(icon=icon)
+                
+                # Active Indicator
+                if is_active:
+                    row.label(text="", icon='CHECKMARK')
+                
+                row.label(text="", icon=icon)
                 
                 if is_expanded:
-                    return box.column(align=True)
+                    # Add some padding inside the box
+                    col = box.column(align=True)
+                    col.separator()
+                    return col
                 return None
 
             # Group: Output
-            col = draw_collapsible_box(layout, settings, "ui_show_output", "Output", 'FILE_FOLDER')
+            col = draw_collapsible_box(layout, settings, "ui_show_output", "Output", 'FILE_FOLDER', is_active=job.override_output)
             
             if col:
                 # Header Row (Checkbox + Apply Button)
@@ -239,10 +247,12 @@ class RenderCuePanelMixin:
                 row.prop(job, "override_output", text="Override Path")
                 
                 sub = row.row(align=True)
-                sub.scale_x = 0.8
-                op = sub.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+                sub.scale_x = 1.2 # Make button slightly wider for text
+                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
                 op.data_path_bool = "override_output"
                 op.data_path_val = "output_path"
+                
+                col.separator() # Spacing
                 
                 # Content (Indented)
                 if job.override_output:
@@ -257,9 +267,12 @@ class RenderCuePanelMixin:
                     sub.scale_x = 1.0
                     op = sub.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
                     op.target_property = "job_output_path"
+                    
+                col.separator()
 
             # Group: Dimensions
-            col = draw_collapsible_box(layout, settings, "ui_show_dimensions", "Dimensions", 'CON_SIZELIKE')
+            is_dim_active = job.override_frame_range or job.override_resolution
+            col = draw_collapsible_box(layout, settings, "ui_show_dimensions", "Dimensions", 'CON_SIZELIKE', is_active=is_dim_active)
 
             if col:
                 # Frame Range
@@ -267,10 +280,12 @@ class RenderCuePanelMixin:
                 row.prop(job, "override_frame_range", text="Override Frame Range")
                 
                 sub = row.row(align=True)
-                sub.scale_x = 0.8
-                op = sub.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+                sub.scale_x = 1.2
+                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
                 op.data_path_bool = "override_frame_range"
                 op.data_path_val = "frame_range"
+                
+                col.separator()
                 
                 if job.override_frame_range:
                     sub_col = col.column(align=True)
@@ -287,38 +302,47 @@ class RenderCuePanelMixin:
                 row.prop(job, "override_resolution", text="Override Resolution")
                 
                 sub = row.row(align=True)
-                sub.scale_x = 0.8
-                op = sub.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+                sub.scale_x = 1.2
+                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
                 op.data_path_bool = "override_resolution"
                 op.data_path_val = "resolution_scale"
+                
+                col.separator()
                 
                 if job.override_resolution:
                     sub_col = col.column(align=True)
                     sub_col.use_property_split = True
                     sub_col.use_property_decorate = False
                     sub_col.prop(job, "resolution_scale", text="Scale %")
+                    
+                col.separator()
 
             # Group: Format
-            col = draw_collapsible_box(layout, settings, "ui_show_format", "Format", 'IMAGE_DATA')
+            col = draw_collapsible_box(layout, settings, "ui_show_format", "Format", 'IMAGE_DATA', is_active=job.override_format)
             
             if col:
                 row = col.row(align=True)
                 row.prop(job, "override_format", text="Override Format")
                 
                 sub = row.row(align=True)
-                sub.scale_x = 0.8
-                op = sub.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+                sub.scale_x = 1.2
+                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
                 op.data_path_bool = "override_format"
                 op.data_path_val = "render_format"
+                
+                col.separator()
                 
                 if job.override_format:
                     sub_col = col.column(align=True)
                     sub_col.use_property_split = True
                     sub_col.use_property_decorate = False
                     sub_col.prop(job, "render_format", text="File Format")
+                    
+                col.separator()
 
             # Group: Render
-            col = draw_collapsible_box(layout, settings, "ui_show_render", "Render", 'RESTRICT_RENDER_OFF')
+            is_render_active = job.override_engine or job.override_samples or job.override_view_layer
+            col = draw_collapsible_box(layout, settings, "ui_show_render", "Render", 'RESTRICT_RENDER_OFF', is_active=is_render_active)
 
             if col:
                 # Engine
@@ -326,10 +350,12 @@ class RenderCuePanelMixin:
                 row.prop(job, "override_engine", text="Override Engine")
                 
                 sub = row.row(align=True)
-                sub.scale_x = 0.8
-                op = sub.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+                sub.scale_x = 1.2
+                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
                 op.data_path_bool = "override_engine"
                 op.data_path_val = "render_engine"
+                
+                col.separator()
                 
                 if job.override_engine:
                     sub_col = col.column(align=True)
@@ -344,10 +370,12 @@ class RenderCuePanelMixin:
                 row.prop(job, "override_samples", text="Override Samples")
                 
                 sub = row.row(align=True)
-                sub.scale_x = 0.8
-                op = sub.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+                sub.scale_x = 1.2
+                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
                 op.data_path_bool = "override_samples"
                 op.data_path_val = "samples"
+                
+                col.separator()
                 
                 if job.override_samples:
                     sub_col = col.column(align=True)
@@ -363,16 +391,20 @@ class RenderCuePanelMixin:
                     row.prop(job, "override_view_layer", text="Override View Layer")
                     
                     sub = row.row(align=True)
-                    sub.scale_x = 0.8
-                    op = sub.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+                    sub.scale_x = 1.2
+                    op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
                     op.data_path_bool = "override_view_layer"
                     op.data_path_val = "view_layer"
+                    
+                    col.separator()
                     
                     if job.override_view_layer:
                         sub_col = col.column(align=True)
                         sub_col.use_property_split = True
                         sub_col.use_property_decorate = False
                         sub_col.prop_search(job, "view_layer", job.scene, "view_layers", text="Layer")
+                    
+                    col.separator()
             
         layout.separator()
         
