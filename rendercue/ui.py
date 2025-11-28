@@ -256,7 +256,7 @@ class RenderCuePanelMixin:
             col.separator()
 
             # Group: Dimensions
-            col.label(text="Dimensions", icon='DRIVER_DISTANCE')
+            col.label(text="Dimensions")
 
             # Frame Range
             row = col.row(align=True)
