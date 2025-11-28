@@ -169,6 +169,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
 
             
         # Webhook Notification
+        prefs = context.preferences.addons[__package__].preferences
         if prefs.webhook_url:
             send_webhook(prefs.webhook_url, "Batch Render Completed Successfully!")
 

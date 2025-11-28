@@ -28,7 +28,6 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         layout.separator()
         
         # Instructions Section
-        # Instructions Section
         box = layout.box()
         box.label(text="Quick Start:", icon='INFO')
         col = box.column(align=True)
