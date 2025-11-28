@@ -17,11 +17,3 @@ blender_version_min = "4.2.0"
 files = "Needed to save rendered images and video files to arbitrary user-defined output directories outside the blend file location."
 network = "Required to send render completion notifications to user-configured Webhook URLs (e.g., Discord, Slack)."
 
-[build]
-paths = ["."]
-excludes = [
-    ".gitignore",
-    "build_package.py",
-    "TROUBLESHOOTING.md",
-    "*.jpg"
-]
