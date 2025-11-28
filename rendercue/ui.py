@@ -208,37 +208,31 @@ class RenderCuePanelMixin:
             row = box.row()
             row.label(text=f"Overrides: {job.scene.name if job.scene else 'None'}", icon='MODIFIER')
             
-            # Use a cleaner layout for overrides
-            col = box.column(align=True)
-            col.use_property_split = True
-            col.use_property_decorate = False
+            # Create parent column for all collapsible sections
+            parent_col = box.column(align=True)
+            parent_col.separator()
             
             # Helper for collapsible group styling
             def draw_collapsible_box(layout, settings, prop_name, title, icon, is_active=False):
                 box = layout.box()
                 row = box.row(align=True)
                 
-                # Split layout to keep title stable and push icons to the right
-                # Factor 0.7 gives enough space for the title
-                split = row.split(factor=0.7)
-                
-                # Left Side: Toggle/Title
                 # Toggle Icon
                 is_expanded = getattr(settings, prop_name)
                 icon_state = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
                 
-                # Header acts as a button
-                split.prop(settings, prop_name, icon=icon_state, text=title, emboss=False)
+                # Header with toggle button
+                row.prop(settings, prop_name, icon=icon_state, text=title, emboss=False)
                 
-                # Right Side: Indicators
-                r_row = split.row(align=True)
-                r_row.alignment = 'RIGHT'
+                # Spacer to push icons to the right
+                row.label(text="")
                 
                 # Active Indicator
                 if is_active:
-                    r_row.label(text="", icon='CHECKMARK')
+                    row.label(text="", icon='CHECKMARK')
                 
-                r_row.label(text="", icon=icon)
+                # Group Icon
+                row.label(text="", icon=icon)
                 
                 if is_expanded:
                     # Add some padding inside the box
@@ -248,7 +242,7 @@ class RenderCuePanelMixin:
                 return None
 
             # Group: Output
-            col = draw_collapsible_box(layout, settings, "ui_show_output", "Output", 'FILE_FOLDER', is_active=job.override_output)
+            col = draw_collapsible_box(parent_col, settings, "ui_show_output", "Output", 'FILE_FOLDER', is_active=job.override_output)
             
             if col:
                 # Header Row (Checkbox + Apply Button)
@@ -281,7 +275,7 @@ class RenderCuePanelMixin:
 
             # Group: Dimensions
             is_dim_active = job.override_frame_range or job.override_resolution
-            col = draw_collapsible_box(layout, settings, "ui_show_dimensions", "Dimensions", 'CON_SIZELIKE', is_active=is_dim_active)
+            col = draw_collapsible_box(parent_col, settings, "ui_show_dimensions", "Dimensions", 'CON_SIZELIKE', is_active=is_dim_active)
 
             if col:
                 # Frame Range
@@ -327,7 +321,7 @@ class RenderCuePanelMixin:
                 col.separator()
 
             # Group: Format
-            col = draw_collapsible_box(layout, settings, "ui_show_format", "Format", 'IMAGE_DATA', is_active=job.override_format)
+            col = draw_collapsible_box(parent_col, settings, "ui_show_format", "Format", 'IMAGE_DATA', is_active=job.override_format)
             
             if col:
                 row = col.row(align=True)
@@ -351,7 +345,7 @@ class RenderCuePanelMixin:
 
             # Group: Render
             is_render_active = job.override_engine or job.override_samples or job.override_view_layer
-            col = draw_collapsible_box(layout, settings, "ui_show_render", "Render", 'RESTRICT_RENDER_OFF', is_active=is_render_active)
+            col = draw_collapsible_box(parent_col, settings, "ui_show_render", "Render", 'RESTRICT_RENDER_OFF', is_active=is_render_active)
 
             if col:
                 # Engine
