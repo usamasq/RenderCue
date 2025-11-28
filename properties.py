@@ -65,7 +65,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
     )
     output_path: bpy.props.StringProperty(
         name="Output Path", 
-        subtype='DIR_PATH', 
+        # subtype='DIR_PATH', # Removed to prevent red highlight
         default="//",
         description="Custom output directory for this job",
         options={'SKIP_SAVE'}
@@ -148,7 +148,7 @@ class RenderCueSettings(bpy.types.PropertyGroup):
     
     global_output_path: bpy.props.StringProperty(
         name="Global Output",
-        subtype='DIR_PATH',
+        # subtype='DIR_PATH', # Removed to prevent red highlight
         default="//render_cue_output/",
         description="Base directory for batch renders",
         options={'SKIP_SAVE'}
@@ -246,11 +246,7 @@ class RenderCueSettings(bpy.types.PropertyGroup):
         options={'SKIP_SAVE'}
     )
     
-    banner_image: bpy.props.PointerProperty(
-        type=bpy.types.Image,
-        name="Banner",
-        options={'SKIP_SAVE'}
-    )
+
 
     last_render_status: bpy.props.EnumProperty(
         name="Last Render Status",

@@ -25,7 +25,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
 
     bl_idname = "rendercue.batch_render"
     bl_label = "Render Cue"
-    bl_description = "Process the render queue"
+    bl_description = "Start background rendering of all jobs in the queue. Blender will remain responsive."
     bl_options = {'REGISTER'}
 
     _timer = None

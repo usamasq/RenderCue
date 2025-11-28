@@ -101,33 +101,7 @@ class RenderCuePanelMixin:
         wm = context.window_manager
         settings = context.window_manager.rendercue
         
-        # Banner
-        try:
-            if hasattr(settings, "banner_image"):
-                if not settings.banner_image:
-                    # Try to load banner
-                    banner_name = "RenderCue.jpg"
-                    if banner_name in bpy.data.images:
-                        settings.banner_image = bpy.data.images[banner_name]
-                    else:
-                        addon_dir = os.path.dirname(__file__)
-                        banner_path = os.path.join(addon_dir, banner_name)
-                        if os.path.exists(banner_path):
-                            try:
-                                img = bpy.data.images.load(banner_path, check_existing=True)
-                                img.name = banner_name
-                                settings.banner_image = img
-                            except:
-                                pass
-            
-                if settings.banner_image:
-                    row = layout.row()
-                    row.scale_y = 0.5 
-                    layout.template_image(settings, "banner_image", image_user=None, compact=True)
-                    layout.separator()
-        except Exception as e:
-            # If banner fails, just ignore it so the rest of the UI still draws
-            print(f"RenderCue Banner Error: {e}")
+
         
         
         # Progress Indicator
@@ -146,7 +120,7 @@ class RenderCuePanelMixin:
                 box.separator()
                 box.label(text="Last Rendered Frame:", icon='IMAGE_DATA')
                 col = box.column()
-                # Use template_ID_preview instead of template_image for dynamic images
+                # Revert to template_ID_preview to fix crash. template_image requires image_user.
                 col.template_ID_preview(settings, "preview_image", rows=4, cols=6)
             
             # Control Buttons - IMPORTANT: Draw these BEFORE disabling layout!
@@ -196,6 +170,10 @@ class RenderCuePanelMixin:
         
         row = col.row(align=True)
         row.prop(settings, "global_output_path", text="Output Path")
+        # Browse Button
+        op = row.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
+        op.target_property = "global_output_path"
+        # Open Folder Button
         row.operator("rendercue.open_output_folder", icon='EXTERNAL_DRIVE', text="")
         
         # Selected Job Settings (Overrides)
@@ -229,8 +207,22 @@ class RenderCuePanelMixin:
                 op.data_path_bool = data_path_bool
                 op.data_path_val = data_path_val
 
-            # Output
-            draw_override_row("override_output", "output_path", "Output", "override_output", "output_path")
+            # Output Override with Browse Button
+            row = col.row(align=True)
+            row.prop(job, "override_output", text="Output")
+            
+            sub = row.row(align=True)
+            sub.active = job.override_output
+            sub.prop(job, "output_path", text="")
+            
+            # Browse Button
+            op = sub.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
+            op.target_property = "job_output_path"
+            
+            # Apply to All
+            op = row.operator("rendercue.apply_override_to_all", text="", icon='DUPLICATE')
+            op.data_path_bool = "override_output"
+            op.data_path_val = "output_path"
             
             # Frame Range (Special handling)
             row = col.row(align=True)
@@ -272,8 +264,10 @@ class RenderCuePanelMixin:
             
         layout.separator()
         row = layout.row()
-        row.scale_y = 2.0 # Make Render button very prominent
-        row.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="Render Cue")
+        row.alignment = 'CENTER'
+        row.scale_y = 2.5 
+        row.scale_x = 3.0 # Make it wide but keep content centered
+        row.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="START RENDER QUEUE")
 
 class RENDERCUE_MT_presets_menu(bpy.types.Menu):
     bl_label = "Presets"

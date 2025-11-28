@@ -341,39 +341,52 @@ class RENDERCUE_OT_resume_render(bpy.types.Operator):
                 pass
         return {'FINISHED'}
 
+class RENDERCUE_OT_browse_path(bpy.types.Operator):
+    bl_idname = "rendercue.browse_path"
+    bl_label = "Browse"
+    bl_description = "Browse for directory"
+    
+    filepath: bpy.props.StringProperty(subtype="DIR_PATH")
+    target_property: bpy.props.StringProperty()
+    
+    def execute(self, context):
+        settings = context.window_manager.rendercue
+        if self.filepath:
+            if self.target_property == "global_output_path":
+                settings.global_output_path = self.filepath
+            elif self.target_property == "job_output_path":
+                if settings.jobs and settings.active_job_index >= 0:
+                     settings.jobs[settings.active_job_index].output_path = self.filepath
+        return {'FINISHED'}
+
+    def invoke(self, context, event):
+        context.window_manager.fileselect_add(self)
+        return {'RUNNING_MODAL'}
+
+classes = (
+    RENDERCUE_OT_add_job,
+    RENDERCUE_OT_remove_job,
+    RENDERCUE_OT_move_job,
+    RENDERCUE_OT_populate_all,
+    RENDERCUE_OT_apply_override_to_all,
+    RENDERCUE_OT_open_output_folder,
+    RENDERCUE_OT_validate_queue,
+    RENDERCUE_OT_save_preset,
+    RENDERCUE_OT_load_preset,
+    RENDERCUE_OT_quick_preset,
+    RENDERCUE_OT_switch_to_job_scene,
+    RENDERCUE_OT_stop_render,
+    RENDERCUE_OT_pause_render,
+    RENDERCUE_OT_resume_render,
+    RENDERCUE_OT_browse_path,
+)
+
 def register():
-    bpy.utils.register_class(RENDERCUE_OT_add_job)
-    bpy.utils.register_class(RENDERCUE_OT_remove_job)
-    bpy.utils.register_class(RENDERCUE_OT_move_job)
-    bpy.utils.register_class(RENDERCUE_OT_populate_all)
-    bpy.utils.register_class(RENDERCUE_OT_apply_override_to_all)
-    bpy.utils.register_class(RENDERCUE_OT_open_output_folder)
-    bpy.utils.register_class(RENDERCUE_OT_validate_queue)
-    bpy.utils.register_class(RENDERCUE_OT_save_preset)
-    bpy.utils.register_class(RENDERCUE_OT_load_preset)
-    bpy.utils.register_class(RENDERCUE_OT_quick_preset)
-    bpy.utils.register_class(RENDERCUE_OT_switch_to_job_scene)
-    bpy.utils.register_class(RENDERCUE_OT_stop_render)
-    bpy.utils.register_class(RENDERCUE_OT_pause_render)
-    bpy.utils.register_class(RENDERCUE_OT_resume_render)
+    for cls in classes:
+        bpy.utils.register_class(cls)
 
 def unregister():
-    for cls in (
-        RENDERCUE_OT_resume_render,
-        RENDERCUE_OT_pause_render,
-        RENDERCUE_OT_stop_render,
-        RENDERCUE_OT_switch_to_job_scene,
-        RENDERCUE_OT_quick_preset,
-        RENDERCUE_OT_load_preset,
-        RENDERCUE_OT_save_preset,
-        RENDERCUE_OT_validate_queue,
-        RENDERCUE_OT_open_output_folder,
-        RENDERCUE_OT_apply_override_to_all,
-        RENDERCUE_OT_populate_all,
-        RENDERCUE_OT_move_job,
-        RENDERCUE_OT_remove_job,
-        RENDERCUE_OT_add_job,
-    ):
+    for cls in reversed(classes):
         try:
             bpy.utils.unregister_class(cls)
         except RuntimeError:
