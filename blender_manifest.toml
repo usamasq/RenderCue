@@ -3,10 +3,10 @@ schema_version = "1.0.0"
 id = "rendercue"
 version = "1.0.0"
 name = "RenderCue"
-tagline = "Sequence. Queue. Render."
+tagline = "Sequence. Queue. Render"
 maintainer = "RenderCue Team"
 type = "add-on"
-license = ["GPL-3.0-or-later"]
+license = ["SPDX:GPL-3.0-or-later"]
 website = "https://github.com/usamasq/RenderCue"
 tags = ["Render", "Sequencer", "Pipeline"]
 
