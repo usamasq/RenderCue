@@ -32,5 +32,3 @@ def unregister():
     operators.unregister()
     properties.unregister()
 
-if __name__ == "__main__":
-    register()
