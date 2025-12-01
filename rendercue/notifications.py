@@ -3,11 +3,6 @@ import subprocess
 import sys
 import bpy
 
-import json
-import subprocess
-import sys
-import bpy
-
 def send_webhook(url, message, title="RenderCue Notification", color=0x00ff00):
     """Send a Discord/Slack compatible webhook using a subprocess.
 
@@ -23,9 +18,13 @@ def send_webhook(url, message, title="RenderCue Notification", color=0x00ff00):
         return
 
     # Check for Online Access preference
-    if not bpy.context.preferences.system.use_online_access:
-        print("RenderCue: Online Access disabled in preferences. Skipping webhook.")
-        return
+    try:
+        if not bpy.context.preferences.system.use_online_access:
+            print("RenderCue: Online Access disabled in preferences. Skipping webhook.")
+            return
+    except AttributeError:
+        # Older Blender versions may not have this attribute
+        pass
 
     # Prepare payload
     payload = {
@@ -48,7 +47,7 @@ import urllib.request
 import json
 import sys
 
-url = "{url}"
+url = {json.dumps(url)}
 payload = {json.dumps(payload)}
 
 try:
@@ -56,30 +55,68 @@ try:
     req.add_header('Content-Type', 'application/json')
     req.add_header('User-Agent', 'RenderCue/1.0')
     data = json.dumps(payload).encode('utf-8')
-    with urllib.request.urlopen(req, data=data) as response:
+    with urllib.request.urlopen(req, data=data, timeout=10) as response:
         pass
 except Exception:
     pass
 """
     
     try:
-        # Run asynchronously
-        subprocess.Popen([sys.executable, "-c", script])
-    except OSError as e:
+        # Run asynchronously with Blender's Python environment
+        # Use bpy.app.python_args to ensure compatibility with Blender's Python setup
+        subprocess.Popen([sys.executable, *bpy.app.python_args, "-c", script])
+    except (OSError, ValueError) as e:
         print(f"RenderCue: Failed to trigger webhook subprocess: {e}")
 
-def show_toast(title, message):
+def show_notification(title, message):
+    """Show a notification using the best available method for the platform.
+    
+    Falls back to Blender's info area if native notifications are unavailable.
+    
+    Args:
+        title (str): The notification title.
+        message (str): The notification message.
+    """
+    # Always show in Blender's info area (cross-platform fallback)
+    _show_blender_notification(title, message)
+    
+    # Additionally, try to show native OS notification
+    if sys.platform == 'win32':
+        _show_windows_toast(title, message)
+    # TODO: Add macOS and Linux support (see GitHub issue)
+
+def _show_blender_notification(title, message):
+    """Show notification in Blender's info area.
+    
+    Args:
+        title (str): The notification title.
+        message (str): The notification message.
+    """
+    try:
+        # Format message for info area
+        full_message = f"{title}: {message}"
+        # Show in Blender's info panel
+        bpy.ops.wm.console_toggle()  # This ensures info is visible
+        bpy.ops.wm.console_toggle()  # Toggle back
+        print(f"[RenderCue] {full_message}")
+    except (AttributeError, RuntimeError):
+        # Fallback to simple print
+        print(f"[RenderCue] {title}: {message}")
+
+def _show_windows_toast(title, message):
     """Show a native Windows toast notification using PowerShell.
 
     This function runs asynchronously and only works on Windows.
+    PowerShell is included by default in Windows 10/11.
 
     Args:
         title (str): The title of the notification.
         message (str): The message content.
     """
-    if sys.platform != 'win32':
-        return
-        
+    # Sanitize input to prevent PowerShell injection
+    title = str(title).replace('"', '""').replace("'", "''")
+    message = str(message).replace('"', '""').replace("'", "''")
+    
     ps_script = f"""
     [Windows.UI.Notifications.ToastNotificationManager, Windows.UI.Notifications, ContentType = WindowsRuntime] > $null
     $template = [Windows.UI.Notifications.ToastNotificationManager]::GetTemplateContent([Windows.UI.Notifications.ToastTemplateType]::ToastText02)
@@ -92,8 +129,13 @@ def show_toast(title, message):
     """
     
     try:
-        # Run asynchronously
-        subprocess.Popen(["powershell", "-Command", ps_script], creationflags=subprocess.CREATE_NO_WINDOW)
-    except OSError as e:
-        print(f"RenderCue: Failed to show toast: {e}")
+        # Run asynchronously with no window
+        subprocess.Popen(
+            ["powershell", "-Command", ps_script],
+            creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
+        )
+    except (OSError, ValueError, FileNotFoundError) as e:
+        print(f"RenderCue: Failed to show Windows toast notification: {e}")
 
+# Backward compatibility alias
+show_toast = show_notification

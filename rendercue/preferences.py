@@ -1,4 +1,5 @@
 import bpy
+from .core import StateManager
 
 class RenderCuePreferences(bpy.types.AddonPreferences):
     """Addon preferences for RenderCue."""
@@ -15,6 +16,19 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         name="Show Desktop Notifications",
         description="Show a system notification when a render batch completes or fails",
         default=True
+    )
+
+    def update_auto_save(self, context):
+        if self.auto_save_queue:
+            StateManager.register_handlers()
+        else:
+            StateManager.unregister_handlers()
+
+    auto_save_queue: bpy.props.BoolProperty(
+        name="Auto-Save Queue State",
+        description="Automatically save and restore render queue when saving/loading .blend files",
+        default=False,
+        update=update_auto_save
     )
     
     def draw(self, context):
@@ -36,6 +50,10 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         
         # Preferences
         layout.separator()
+        layout.label(text="General:")
+        layout.prop(self, "auto_save_queue")
+        
+        layout.separator()
         layout.label(text="Notifications:")
         layout.prop(self, "show_notifications")
         layout.prop(self, "webhook_url")
@@ -47,8 +65,8 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         box = layout.box()
         box.label(text="Tips:", icon='LIGHTPROBE_SPHERE')
         col = box.column(align=True)
-        col.label(text="• Queue is saved with your .blend file - no need to rebuild!")
-        col.label(text="• Click the ⧉ icon next to any override to apply it to all jobs")
+        col.label(text="• Enable 'Auto-Save Queue' in preferences to persist queue in .blend files")
+        col.label(text="• Use 'Override All' button to apply settings to all jobs in queue")
         col.label(text="• Access RenderCue from multiple locations for convenience")
         
         layout.separator()

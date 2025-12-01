@@ -6,7 +6,7 @@ import subprocess
 import sys
 import atexit
 from .core import StateManager, RenderCueLogger
-from .notifications import send_webhook, show_toast
+from .notifications import send_webhook, show_notification
 from .constants import (
     MANIFEST_FILENAME, STATUS_FILENAME, PAUSE_SIGNAL_FILENAME,
     STATUS_MESSAGE, STATUS_ETR, STATUS_JOB_INDEX, STATUS_FINISHED_FRAMES,
@@ -79,21 +79,31 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                             context.window_manager.rendercue.current_job_index = status.get(STATUS_JOB_INDEX, 0)
                             context.window_manager.rendercue.finished_frames_count = status.get(STATUS_FINISHED_FRAMES, 0)
                             context.window_manager.rendercue.total_frames_to_render = status.get(STATUS_TOTAL_FRAMES, 0)
+                            
+                            # Handle preview updates
                             last_frame = status.get(STATUS_LAST_FRAME, "")
                             context.window_manager.rendercue.last_rendered_frame = last_frame
                             
                             if last_frame:
                                 self.update_preview(context, last_frame)
                             
+                            # Check for errors
                             if status.get(STATUS_ERROR):
-                                self.report({'ERROR'}, status[STATUS_ERROR])
+                                self.report({'ERROR'}, f"Render Error: {status[STATUS_ERROR]}")
                                 context.window_manager.rendercue.last_render_status = 'FAILED'
                                 context.window_manager.rendercue.last_render_message = f"Error: {status[STATUS_ERROR]}"
                                 
+                                # Send error webhook
                                 prefs = context.preferences.addons[__package__].preferences
+                                if prefs.webhook_url:
+                                    filename = os.path.basename(bpy.data.filepath) or "Untitled.blend"
+                                    error_msg = f"**Project:** {filename}\n**Error:** {status[STATUS_ERROR]}"
+                                    send_webhook(prefs.webhook_url, error_msg, title="❌ Render Failed", color=0xff0000)
+                                
+                                # Send desktop notification
                                 if prefs.show_notifications:
-                                    show_toast("RenderCue Error", status[STATUS_ERROR])
-                                    
+                                    show_notification("RenderCue Error", status[STATUS_ERROR])
+                                
                                 self._stop = True
                     except (OSError, json.JSONDecodeError):
                         pass
@@ -179,7 +189,26 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         # Webhook Notification
         prefs = context.preferences.addons[__package__].preferences
         if prefs.webhook_url:
-            send_webhook(prefs.webhook_url, "Batch Render Completed Successfully!")
+            # Build informative message
+            filename = os.path.basename(bpy.data.filepath) or "Untitled.blend"
+            total_jobs = context.window_manager.rendercue.total_jobs_count
+            frames = context.window_manager.rendercue.finished_frames_count
+            
+            # Calculate duration
+            duration = time.time() - getattr(self, '_start_time', time.time())
+            hours = int(duration // 3600)
+            minutes = int((duration % 3600) // 60)
+            seconds = int(duration % 60)
+            
+            time_str = ""
+            if hours > 0:
+                time_str += f"{hours}h "
+            if minutes > 0 or hours > 0:
+                time_str += f"{minutes}m "
+            time_str += f"{seconds}s"
+            
+            message = f"**Project:** {filename}\n**Jobs:** {total_jobs}\n**Frames:** {frames}\n**Duration:** {time_str}"
+            send_webhook(prefs.webhook_url, message, title="✅ Render Complete", color=0x00ff00)
 
         # Desktop Notification
         if prefs.show_notifications:
@@ -200,7 +229,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             frames = context.window_manager.rendercue.finished_frames_count
             
             msg = f"File: {filename}\nFrames: {frames}\nTime: {time_str}"
-            show_toast("RenderCue Complete", msg)
+            show_notification("RenderCue Complete", msg)
             
         # Update Status
         if not self._stop: # Only if not cancelled/error

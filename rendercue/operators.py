@@ -13,9 +13,6 @@ class RENDERCUE_OT_add_job(bpy.types.Operator):
 
     def execute(self, context):
         """Execute the operator."""
-        # Register handlers if not already registered
-        StateManager.register_handlers()
-        
         settings = context.window_manager.rendercue
         
         job = settings.jobs.add()
@@ -85,9 +82,6 @@ class RENDERCUE_OT_populate_all(bpy.types.Operator):
 
     def execute(self, context):
         """Execute the operator."""
-        # Register handlers
-        StateManager.register_handlers()
-        
         settings = context.window_manager.rendercue
         
         existing_scenes = {job.scene for job in settings.jobs if job.scene}
@@ -103,7 +97,7 @@ class RENDERCUE_OT_populate_all(bpy.types.Operator):
 class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
     """Apply a specific override setting to all jobs in the queue."""
     bl_idname = "rendercue.apply_override_to_all"
-    bl_label = "Apply to All Jobs"
+    bl_label = "Override All Jobs"
     bl_description = "Apply this specific override setting to all jobs in the queue"
     bl_options = {'REGISTER', 'UNDO'}
     
@@ -414,7 +408,6 @@ class RENDERCUE_OT_load_data(bpy.types.Operator):
     
     def execute(self, context):
         """Execute the operator."""
-        StateManager.register_handlers()
         StateManager.load_queue_from_text(context)
         self.report({'INFO'}, "RenderCue data loaded")
         return {'FINISHED'}

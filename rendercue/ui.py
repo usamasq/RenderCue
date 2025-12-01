@@ -224,6 +224,7 @@ class RenderCuePanelMixin:
                 icon_state = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
                 
                 # Header with toggle button
+                row.alignment = 'LEFT'
                 row.prop(settings, prop_name, icon=icon_state, text=title, emboss=False)
                 
                 # Spacer to push icons to the right
@@ -253,7 +254,7 @@ class RenderCuePanelMixin:
                 
                 sub = row.row(align=True)
                 sub.scale_x = 1.2 # Make button slightly wider for text
-                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
+                op = sub.operator("rendercue.apply_override_to_all", text="Override All", icon='DUPLICATE')
                 op.data_path_bool = "override_output"
                 op.data_path_val = "output_path"
                 
@@ -286,7 +287,7 @@ class RenderCuePanelMixin:
                 
                 sub = row.row(align=True)
                 sub.scale_x = 1.2
-                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
+                op = sub.operator("rendercue.apply_override_to_all", text="Override All", icon='DUPLICATE')
                 op.data_path_bool = "override_frame_range"
                 op.data_path_val = "frame_range"
                 
@@ -308,7 +309,7 @@ class RenderCuePanelMixin:
                 
                 sub = row.row(align=True)
                 sub.scale_x = 1.2
-                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
+                op = sub.operator("rendercue.apply_override_to_all", text="Override All", icon='DUPLICATE')
                 op.data_path_bool = "override_resolution"
                 op.data_path_val = "resolution_scale"
                 
@@ -331,7 +332,7 @@ class RenderCuePanelMixin:
                 
                 sub = row.row(align=True)
                 sub.scale_x = 1.2
-                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
+                op = sub.operator("rendercue.apply_override_to_all", text="Override All", icon='DUPLICATE')
                 op.data_path_bool = "override_format"
                 op.data_path_val = "render_format"
                 
@@ -356,7 +357,7 @@ class RenderCuePanelMixin:
                 
                 sub = row.row(align=True)
                 sub.scale_x = 1.2
-                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
+                op = sub.operator("rendercue.apply_override_to_all", text="Override All", icon='DUPLICATE')
                 op.data_path_bool = "override_engine"
                 op.data_path_val = "render_engine"
                 
@@ -376,7 +377,7 @@ class RenderCuePanelMixin:
                 
                 sub = row.row(align=True)
                 sub.scale_x = 1.2
-                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
+                op = sub.operator("rendercue.apply_override_to_all", text="Override All", icon='DUPLICATE')
                 op.data_path_bool = "override_samples"
                 op.data_path_val = "samples"
                 
