@@ -381,15 +381,45 @@ class RENDERCUE_OT_switch_to_job_scene(bpy.types.Operator):
         return {'FINISHED'}
 
 class RENDERCUE_OT_stop_render(bpy.types.Operator):
-    """Stop the current render process."""
+    """Stop the current render process and clear all progress."""
     bl_idname = "rendercue.stop_render"
-    bl_label = "Stop Render"
-    bl_description = "Stop the current render process"
+    bl_label = "Stop & Clear Progress"
+    bl_description = "Stop rendering and clear all progress. Jobs will restart from beginning. Use PAUSE if you want to resume later."
     
     def execute(self, context):
         """Execute the operator."""
-        context.window_manager.rendercue.stop_requested = True
-        self.report({'INFO'}, "Stopping render...")
+        settings = context.window_manager.rendercue
+        
+        # Signal stop to background worker
+        settings.stop_requested = True
+        
+        # Reset ONLY visual queue state (preserve completion data for summary)
+        for job in settings.jobs:
+            job.render_status = 'PENDING'
+            # Do NOT clear completed_frames or total_frames
+            # (needed for summary banner and notifications)
+        
+        # Reset current render pointer
+        settings.current_job_index = 0
+        
+        # Clear Preview Thumbnail
+        image_name = "RenderCue Preview"
+        if image_name in bpy.data.images:
+            img = bpy.data.images[image_name]
+            bpy.data.images.remove(img)
+            
+        settings.preview_image = None
+        
+        # Clear UI Collection
+        try:
+            from . import ui
+            if "main" in ui.preview_collections:
+                pcoll = ui.preview_collections["main"]
+                pcoll.clear()
+        except Exception as e:
+            print(f"Error clearing preview: {e}")
+        
+        self.report({'INFO'}, "Stopping render... (Progress will be cleared on next render)")
         return {'FINISHED'}
 
 class RENDERCUE_OT_pause_render(bpy.types.Operator):

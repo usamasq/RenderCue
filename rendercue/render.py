@@ -162,6 +162,15 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             self.report({'ERROR'}, "Save the file before background rendering")
             return {'CANCELLED'}
             
+        # Clear completion data from previous render
+        # (This gives fresh start when user clicks Render again)
+        for job in context.window_manager.rendercue.jobs:
+            job.completed_frames = 0
+            job.total_frames = 0
+        
+        # Reset global progress counters
+        context.window_manager.rendercue.finished_frames_count = 0
+            
         # Setup Paths
         temp_dir = bpy.app.tempdir
         self._manifest_file = os.path.join(temp_dir, MANIFEST_FILENAME)
