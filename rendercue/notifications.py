@@ -96,8 +96,8 @@ def _show_blender_notification(title, message):
         # Format message for info area
         full_message = f"{title}: {message}"
         # Show in Blender's info panel
-        bpy.ops.wm.console_toggle()  # This ensures info is visible
-        bpy.ops.wm.console_toggle()  # Toggle back
+        # bpy.ops.wm.console_toggle()  # Removed disruptive toggle
+        # bpy.ops.wm.console_toggle()  # Removed disruptive toggle
         print(f"[RenderCue] {full_message}")
     except (AttributeError, RuntimeError):
         # Fallback to simple print

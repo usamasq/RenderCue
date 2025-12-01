@@ -21,6 +21,10 @@ STATUS_TIMESTAMP = "timestamp"
 STATUS_FINISHED_FRAMES = "finished_frames"
 STATUS_TOTAL_FRAMES = "total_frames"
 STATUS_LAST_FRAME = "last_frame"
+STATUS_PAUSED_DURATION = "paused_duration"
+STATUS_JOB_STATUSES = "job_statuses"
+STATUS_JOB_PROGRESS = "job_progress"
+STATUS_JOB_TIMINGS = "job_timings"
 
 # Defaults
 DEFAULT_ETR = "--:--"
@@ -48,3 +52,39 @@ JOB_OVERRIDE_FORMAT = "override_format"
 JOB_RENDER_FORMAT = "render_format"
 JOB_OVERRIDE_SAMPLES = "override_samples"
 JOB_SAMPLES = "samples"
+
+# New Overrides
+JOB_OVERRIDE_CAMERA = "override_camera"
+JOB_CAMERA = "camera"
+JOB_OVERRIDE_FRAME_STEP = "override_frame_step"
+JOB_FRAME_STEP = "frame_step"
+JOB_OVERRIDE_TRANSPARENT = "override_transparent"
+JOB_FILM_TRANSPARENT = "film_transparent"
+JOB_OVERRIDE_COMPOSITOR = "override_compositor"
+JOB_USE_COMPOSITOR = "use_compositor"
+JOB_OVERRIDE_DENOISING = "override_denoising"
+JOB_USE_DENOISING = "use_denoising"
+JOB_OVERRIDE_DEVICE = "override_device"
+JOB_DEVICE = "device"
+JOB_OVERRIDE_TIME_LIMIT = "override_time_limit"
+JOB_TIME_LIMIT = "time_limit"
+JOB_OVERRIDE_PERSISTENT_DATA = "override_persistent_data"
+JOB_USE_PERSISTENT_DATA = "use_persistent_data"
+
+# UI Constants
+UI_RESOLUTION_PERCENTAGE_BASE = 100
+UI_BANNER_SCALE = 1.1
+UI_SPACER_SCALE = 2.0
+UI_QUEUE_PREVIEW_BEFORE = 5
+UI_QUEUE_PREVIEW_AFTER = 4
+UI_MAX_JOB_NAME_LENGTH = 18
+UI_PREVIEW_COLLECTION_KEY = "main"
+
+# Icon Mappings
+UI_STATUS_ICONS = {
+    'PENDING': 'SORTTIME',
+    'RENDERING': 'RENDER_ANIMATION',
+    'COMPLETED': 'CHECKMARK',
+    'FAILED': 'ERROR',
+    'CANCELLED': 'CANCEL',
+}

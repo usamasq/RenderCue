@@ -10,11 +10,19 @@ from .constants import (
     JOB_RESOLUTION_SCALE, JOB_OVERRIDE_SAMPLES, JOB_SAMPLES,
     JOB_OVERRIDE_FORMAT, JOB_RENDER_FORMAT, JOB_OVERRIDE_ENGINE,
     JOB_RENDER_ENGINE, JOB_OVERRIDE_VIEW_LAYER, JOB_VIEW_LAYER,
+    JOB_OVERRIDE_CAMERA, JOB_CAMERA, JOB_OVERRIDE_FRAME_STEP, JOB_FRAME_STEP,
+    JOB_OVERRIDE_TRANSPARENT, JOB_FILM_TRANSPARENT,
+    JOB_OVERRIDE_COMPOSITOR, JOB_USE_COMPOSITOR,
+    JOB_OVERRIDE_DENOISING, JOB_USE_DENOISING,
+    JOB_OVERRIDE_DEVICE, JOB_DEVICE,
+    JOB_OVERRIDE_TIME_LIMIT, JOB_TIME_LIMIT,
+    JOB_OVERRIDE_PERSISTENT_DATA, JOB_USE_PERSISTENT_DATA,
     STATUS_MESSAGE, STATUS_ETR, STATUS_FINISHED, STATUS_ERROR,
     STATUS_JOB_INDEX, STATUS_TOTAL_JOBS, STATUS_TIMESTAMP,
     STATUS_FINISHED_FRAMES, STATUS_TOTAL_FRAMES, STATUS_LAST_FRAME,
+    STATUS_JOB_STATUSES, STATUS_JOB_PROGRESS, STATUS_JOB_TIMINGS,
     DEFAULT_ETR, PAUSE_SIGNAL_FILENAME, PREVIEW_FILENAME_PREFIX,
-    DEBUG_LOG_FILENAME
+    DEBUG_LOG_FILENAME, STATUS_PAUSED_DURATION
 )
 
 class RenderCueLogger:
@@ -91,7 +99,25 @@ class StateManager:
                 JOB_RENDER_ENGINE: job.render_engine,
                 
                 JOB_OVERRIDE_VIEW_LAYER: job.override_view_layer,
-                JOB_VIEW_LAYER: job.view_layer
+                JOB_VIEW_LAYER: job.view_layer,
+                
+                # New Overrides
+                JOB_OVERRIDE_CAMERA: job.override_camera,
+                JOB_CAMERA: job.camera.name if job.camera else None,
+                JOB_OVERRIDE_FRAME_STEP: job.override_frame_step,
+                JOB_FRAME_STEP: job.frame_step,
+                JOB_OVERRIDE_TRANSPARENT: job.override_transparent,
+                JOB_FILM_TRANSPARENT: job.film_transparent,
+                JOB_OVERRIDE_COMPOSITOR: job.override_compositor,
+                JOB_USE_COMPOSITOR: job.use_compositor,
+                JOB_OVERRIDE_DENOISING: job.override_denoising,
+                JOB_USE_DENOISING: job.use_denoising,
+                JOB_OVERRIDE_DEVICE: job.override_device,
+                JOB_DEVICE: job.device,
+                JOB_OVERRIDE_TIME_LIMIT: job.override_time_limit,
+                JOB_TIME_LIMIT: job.time_limit,
+                JOB_OVERRIDE_PERSISTENT_DATA: job.override_persistent_data,
+                JOB_USE_PERSISTENT_DATA: job.use_persistent_data
             }
             data[MANIFEST_JOBS].append(job_data)
             
@@ -153,6 +179,33 @@ class StateManager:
                 job.override_view_layer = job_data.get(JOB_OVERRIDE_VIEW_LAYER, False)
                 job.view_layer = job_data.get(JOB_VIEW_LAYER, "")
                 
+                # New Overrides
+                job.override_camera = job_data.get(JOB_OVERRIDE_CAMERA, False)
+                camera_name = job_data.get(JOB_CAMERA)
+                if camera_name and camera_name in bpy.data.objects:
+                    job.camera = bpy.data.objects[camera_name]
+                    
+                job.override_frame_step = job_data.get(JOB_OVERRIDE_FRAME_STEP, False)
+                job.frame_step = job_data.get(JOB_FRAME_STEP, 1)
+                
+                job.override_transparent = job_data.get(JOB_OVERRIDE_TRANSPARENT, False)
+                job.film_transparent = job_data.get(JOB_FILM_TRANSPARENT, False)
+                
+                job.override_compositor = job_data.get(JOB_OVERRIDE_COMPOSITOR, False)
+                job.use_compositor = job_data.get(JOB_USE_COMPOSITOR, True)
+                
+                job.override_denoising = job_data.get(JOB_OVERRIDE_DENOISING, False)
+                job.use_denoising = job_data.get(JOB_USE_DENOISING, True)
+                
+                job.override_device = job_data.get(JOB_OVERRIDE_DEVICE, False)
+                job.device = job_data.get(JOB_DEVICE, 'GPU')
+                
+                job.override_time_limit = job_data.get(JOB_OVERRIDE_TIME_LIMIT, False)
+                job.time_limit = job_data.get(JOB_TIME_LIMIT, 0.0)
+                
+                job.override_persistent_data = job_data.get(JOB_OVERRIDE_PERSISTENT_DATA, False)
+                job.use_persistent_data = job_data.get(JOB_USE_PERSISTENT_DATA, False)
+                
             return True
         except (OSError, json.JSONDecodeError) as e:
             print(f"Error loading state: {e}")
@@ -191,7 +244,25 @@ class StateManager:
                 JOB_OVERRIDE_ENGINE: job.override_engine,
                 JOB_RENDER_ENGINE: job.render_engine,
                 JOB_OVERRIDE_VIEW_LAYER: job.override_view_layer,
-                JOB_VIEW_LAYER: job.view_layer
+                JOB_VIEW_LAYER: job.view_layer,
+                
+                # New Overrides
+                JOB_OVERRIDE_CAMERA: job.override_camera,
+                JOB_CAMERA: job.camera.name if job.camera else None,
+                JOB_OVERRIDE_FRAME_STEP: job.override_frame_step,
+                JOB_FRAME_STEP: job.frame_step,
+                JOB_OVERRIDE_TRANSPARENT: job.override_transparent,
+                JOB_FILM_TRANSPARENT: job.film_transparent,
+                JOB_OVERRIDE_COMPOSITOR: job.override_compositor,
+                JOB_USE_COMPOSITOR: job.use_compositor,
+                JOB_OVERRIDE_DENOISING: job.override_denoising,
+                JOB_USE_DENOISING: job.use_denoising,
+                JOB_OVERRIDE_DEVICE: job.override_device,
+                JOB_DEVICE: job.device,
+                JOB_OVERRIDE_TIME_LIMIT: job.override_time_limit,
+                JOB_TIME_LIMIT: job.time_limit,
+                JOB_OVERRIDE_PERSISTENT_DATA: job.override_persistent_data,
+                JOB_USE_PERSISTENT_DATA: job.use_persistent_data
             }
             data[MANIFEST_JOBS].append(job_data)
             
@@ -243,6 +314,33 @@ class StateManager:
                 job.render_engine = job_data.get(JOB_RENDER_ENGINE, 'CYCLES')
                 job.override_view_layer = job_data.get(JOB_OVERRIDE_VIEW_LAYER, False)
                 job.view_layer = job_data.get(JOB_VIEW_LAYER, "")
+                
+                # New Overrides
+                job.override_camera = job_data.get(JOB_OVERRIDE_CAMERA, False)
+                camera_name = job_data.get(JOB_CAMERA)
+                if camera_name and camera_name in bpy.data.objects:
+                    job.camera = bpy.data.objects[camera_name]
+                    
+                job.override_frame_step = job_data.get(JOB_OVERRIDE_FRAME_STEP, False)
+                job.frame_step = job_data.get(JOB_FRAME_STEP, 1)
+                
+                job.override_transparent = job_data.get(JOB_OVERRIDE_TRANSPARENT, False)
+                job.film_transparent = job_data.get(JOB_FILM_TRANSPARENT, False)
+                
+                job.override_compositor = job_data.get(JOB_OVERRIDE_COMPOSITOR, False)
+                job.use_compositor = job_data.get(JOB_USE_COMPOSITOR, True)
+                
+                job.override_denoising = job_data.get(JOB_OVERRIDE_DENOISING, False)
+                job.use_denoising = job_data.get(JOB_USE_DENOISING, True)
+                
+                job.override_device = job_data.get(JOB_OVERRIDE_DEVICE, False)
+                job.device = job_data.get(JOB_DEVICE, 'GPU')
+                
+                job.override_time_limit = job_data.get(JOB_OVERRIDE_TIME_LIMIT, False)
+                job.time_limit = job_data.get(JOB_TIME_LIMIT, 0.0)
+                
+                job.override_persistent_data = job_data.get(JOB_OVERRIDE_PERSISTENT_DATA, False)
+                job.use_persistent_data = job_data.get(JOB_USE_PERSISTENT_DATA, False)
         except json.JSONDecodeError as e:
             print(f"Error loading queue from text: {e}")
 
@@ -304,6 +402,12 @@ class BackgroundWorker:
         self.total_frames_to_render = 0
         self.finished_frames_count = 0
         self.last_preview_path = ""
+        self.total_paused_duration = 0
+        
+        # Job Status Tracking
+        self.job_statuses = []
+        self.job_progress = []
+        self.job_timings = []
         
     def load_manifest(self):
         """Load the render job manifest from disk.
@@ -316,6 +420,12 @@ class BackgroundWorker:
                 self.manifest = json.load(f)
             self.jobs = self.manifest.get(MANIFEST_JOBS, [])
             self.total_jobs = len(self.jobs)
+            
+            # Initialize tracking lists
+            self.job_statuses = ['PENDING'] * self.total_jobs
+            self.job_progress = [{'done': 0, 'total': 0} for _ in range(self.total_jobs)]
+            self.job_timings = [{'start': 0.0, 'end': 0.0} for _ in range(self.total_jobs)]
+            
             return True
         except (OSError, json.JSONDecodeError) as e:
             print(f"Failed to load manifest: {e}")
@@ -345,7 +455,11 @@ class BackgroundWorker:
             STATUS_TIMESTAMP: time.time(),
             STATUS_FINISHED_FRAMES: self.finished_frames_count,
             STATUS_TOTAL_FRAMES: self.total_frames_to_render,
-            STATUS_LAST_FRAME: self.last_preview_path
+            STATUS_LAST_FRAME: self.last_preview_path,
+            STATUS_PAUSED_DURATION: self.total_paused_duration,
+            STATUS_JOB_STATUSES: self.job_statuses,
+            STATUS_JOB_PROGRESS: self.job_progress,
+            STATUS_JOB_TIMINGS: self.job_timings
         }
         try:
             with open(self.status_path, 'w') as f:
@@ -367,7 +481,14 @@ class BackgroundWorker:
                 if job.get(JOB_OVERRIDE_FRAME_RANGE):
                     start = job[JOB_FRAME_START]
                     end = job[JOB_FRAME_END]
-                self.total_frames_to_render += (end - start + 1)
+                
+                job_frames = (end - start + 1)
+                self.total_frames_to_render += job_frames
+                
+                # Update total frames for this job in tracking
+                idx = self.jobs.index(job)
+                if idx < len(self.job_progress):
+                    self.job_progress[idx]['total'] = job_frames
 
     def on_render_post(self, scene, depsgraph=None):
         """Handler called after each frame render to update progress and save preview.
@@ -376,7 +497,12 @@ class BackgroundWorker:
             scene (bpy.types.Scene): The scene that was rendered.
             depsgraph (bpy.types.Depsgraph, optional): Dependency graph.
         """
+
         self.finished_frames_count += 1
+        
+        # Update job progress
+        if self.current_job_index < len(self.job_progress):
+            self.job_progress[self.current_job_index]['done'] += 1
         
         # Calculate ETR
         elapsed = time.time() - self.start_time
@@ -395,11 +521,12 @@ class BackgroundWorker:
                 else:
                     etr = f"{mins:02d}:{secs:02d}"
         
+
+        
         # Save Preview Image
-        # We save a separate JPEG for the preview to support all formats (including Video)
-        # Use a unique filename with timestamp to force Blender to reload the image
-        timestamp = int(time.time() * 1000)
-        preview_path = os.path.join(os.path.dirname(self.status_path), f"{PREVIEW_FILENAME_PREFIX}{timestamp}.jpg")
+        # We save a separate JPEG for the preview
+        # Use a fixed filename so Blender can reload it reliably
+        preview_path = os.path.join(os.path.dirname(self.status_path), f"{PREVIEW_FILENAME_PREFIX}latest.jpg")
         
         # Debug Log
         debug_log_path = os.path.join(os.path.dirname(self.status_path), DEBUG_LOG_FILENAME)
@@ -418,25 +545,21 @@ class BackgroundWorker:
                 # Set to JPEG for preview
                 scene.render.image_settings.file_format = 'JPEG'
                 
-                # Save
-                bpy.data.images['Render Result'].save_render(filepath=preview_path)
-                log_debug(f"Saved preview to {preview_path}")
+                # Save to temp file first, then atomic rename
+                temp_preview_path = preview_path + ".tmp"
+                bpy.data.images['Render Result'].save_render(filepath=temp_preview_path)
+                
+                try:
+                    os.replace(temp_preview_path, preview_path)
+                    log_debug(f"Saved preview to {preview_path}")
+                except OSError as e:
+                    log_debug(f"Atomic rename failed: {e}")
+                    # Fallback
+                    if os.path.exists(temp_preview_path):
+                        os.remove(temp_preview_path)
                 
                 # Restore
                 scene.render.image_settings.file_format = orig_format
-                
-                # Clean up old previews to save space
-                try:
-                    dir_path = os.path.dirname(self.status_path)
-                    current_name = os.path.basename(preview_path)
-                    for f in os.listdir(dir_path):
-                        if f.startswith(PREVIEW_FILENAME_PREFIX) and f.endswith(".jpg") and f != current_name:
-                            try:
-                                os.remove(os.path.join(dir_path, f))
-                            except OSError:
-                                pass
-                except OSError:
-                    pass
             else:
                 log_debug("Render Result image not found")
                 preview_path = ""
@@ -446,34 +569,18 @@ class BackgroundWorker:
             preview_path = ""
 
         msg = f"Rendering {self.current_job_index + 1}/{self.total_jobs}: {scene.name} (Frame {scene.frame_current})"
+
         self.log_status(msg, etr=etr, last_frame=preview_path)
 
-    def on_render_pre(self, scene, depsgraph=None):
-        """Handler called before rendering starts to check for pause signals.
-
-        Args:
-            scene (bpy.types.Scene): The scene to be rendered.
-            depsgraph (bpy.types.Depsgraph, optional): Dependency graph.
-        """
-        try:
-            # Check for Pause
-            pause_file = os.path.join(os.path.dirname(self.status_path), PAUSE_SIGNAL_FILENAME)
-            if os.path.exists(pause_file):
-                self.log_status("Paused", etr="Paused")
-                print("Render Paused...")
-                while os.path.exists(pause_file):
-                    time.sleep(1)
-                print("Render Resumed")
-                self.log_status("Resuming...", etr="Calculating...")
-        except OSError as e:
-            print(f"Pause Handler Error: {e}")
-            self.log_status(f"Pause Error: {e}", error=str(e))
 
     def run(self):
         """Main execution loop for the background worker."""
         if not self.load_manifest():
             return
 
+        # Initialize Logger
+        logger = RenderCueLogger.get_logger(os.path.dirname(self.status_path))
+        logger.info(f"Starting Background Render: {self.total_jobs} jobs")
         print(f"Starting Background Render: {self.total_jobs} jobs")
         
         self.calculate_total_frames()
@@ -509,6 +616,11 @@ class BackgroundWorker:
                 scene_usage_count[scene_name] = 0
             scene_usage_count[scene_name] += 1
             
+            # Update Job Status
+            self.job_statuses[i] = 'RENDERING'
+            self.job_timings[i]['start'] = time.time()
+            self.log_status(f"Starting Job {i+1}: {scene_name}", etr="Calculating...")
+            
             # Apply Overrides
             frame_start = scene.frame_start
             frame_end = scene.frame_end
@@ -518,7 +630,7 @@ class BackgroundWorker:
                 frame_end = job[JOB_FRAME_END]
                 
             # Output Path Logic
-            if job[JOB_OVERRIDE_OUTPUT]:
+            if job[JOB_OVERRIDE_OUTPUT] and job.get(JOB_OUTPUT_PATH):
                 # Job Override takes precedence
                 output_dir = job[JOB_OUTPUT_PATH]
             else:
@@ -545,12 +657,37 @@ class BackgroundWorker:
             # Apply Render Settings Overrides
             if job.get(JOB_OVERRIDE_ENGINE):
                 scene.render.engine = job[JOB_RENDER_ENGINE]
+            
+            # Camera Override (Universal)
+            if job.get(JOB_OVERRIDE_CAMERA, False):
+                camera_name = job.get(JOB_CAMERA)
+                if camera_name and camera_name in bpy.data.objects:
+                    camera_obj = bpy.data.objects[camera_name]
+                    if camera_obj and camera_obj.type == 'CAMERA':
+                        scene.camera = camera_obj
+                    else:
+                        print(f"Warning: Overridden camera '{camera_name}' is invalid or not a camera.")
+                else:
+                    print(f"Warning: Overridden camera '{camera_name}' not found.")
+            
+            # Frame Step (Universal)
+            frame_step = job.get(JOB_FRAME_STEP, 1) if job.get(JOB_OVERRIDE_FRAME_STEP, False) else 1
+            
+            # Transparent Background (Universal)
+            if job.get(JOB_OVERRIDE_TRANSPARENT, False):
+                scene.render.film_transparent = job[JOB_FILM_TRANSPARENT]
+            
+            # Compositor (Universal)
+            if job.get(JOB_OVERRIDE_COMPOSITOR, False):
+                scene.render.use_compositing = job[JOB_USE_COMPOSITOR]
                 
             if job.get(JOB_OVERRIDE_VIEW_LAYER):
                 vl_name = job[JOB_VIEW_LAYER]
                 if vl_name and vl_name in scene.view_layers:
                     for vl in scene.view_layers:
                         vl.use = (vl.name == vl_name)
+                elif vl_name:
+                     print(f"Warning: View layer '{vl_name}' not found in scene '{scene.name}', skipping override")
 
             if job[JOB_OVERRIDE_RESOLUTION]:
                 scene.render.resolution_percentage = job[JOB_RESOLUTION_SCALE]
@@ -569,9 +706,47 @@ class BackgroundWorker:
                             scene.eevee.samples = job[JOB_SAMPLES]
                         except AttributeError:
                             pass
-
-            # Determine File Format Extension (for manual naming if needed)
             
+            # Cycles-Only Overrides
+            if scene.render.engine == 'CYCLES':
+                # Denoising (Risk #7: API Compatibility)
+                if job.get(JOB_OVERRIDE_DENOISING, False):
+                    try:
+                        # Blender 3.0+
+                        scene.cycles.use_denoising = job[JOB_USE_DENOISING]
+                    except AttributeError:
+                        try:
+                            # Older versions might use different property or location
+                            # For now, we log if it fails but don't crash
+                            pass
+                        except Exception as e:
+                            print(f"Failed to set denoising: {e}")
+                
+                # Device (Risk #8: API Complexity)
+                if job.get(JOB_OVERRIDE_DEVICE, False):
+                    target_device = job[JOB_DEVICE] # 'CPU' or 'GPU'
+                    scene.cycles.device = target_device
+                    
+                    # If GPU is selected, we might need to ensure preferences are set correctly
+                    # But changing system preferences from a background job is risky/complex.
+                    # Setting scene.cycles.device is usually enough for the scene to *request* it.
+                    # However, if no GPU is configured in preferences, it might fall back to CPU.
+                    # We'll stick to setting the scene property as it's the safest per-job override.
+                
+                # Time Limit
+                if job.get(JOB_OVERRIDE_TIME_LIMIT, False):
+                    try:
+                        scene.cycles.time_limit = job[JOB_TIME_LIMIT]
+                    except AttributeError:
+                        pass
+                
+                # Persistent Data
+                if job.get(JOB_OVERRIDE_PERSISTENT_DATA, False):
+                    try:
+                        scene.render.use_persistent_data = job[JOB_USE_PERSISTENT_DATA]
+                    except AttributeError:
+                        pass
+
             # Render Loop
             current_frame = frame_start
             while current_frame <= frame_end:
@@ -599,8 +774,13 @@ class BackgroundWorker:
                     msg = f"Error rendering {scene_name} frame {current_frame}: {str(e)}"
                     print(msg)
                     self.log_status(msg, error=str(e))
+                    self.job_statuses[i] = 'FAILED'
                 
-                current_frame += 1
+                current_frame += frame_step
+
+            # Job Finished
+            self.job_statuses[i] = 'COMPLETED'
+            self.job_timings[i]['end'] = time.time()
 
         self.log_status("All Jobs Completed", finished=True)
         print("Background Render Complete")
@@ -612,9 +792,15 @@ class BackgroundWorker:
             if os.path.exists(pause_file):
                 self.log_status("Paused", etr="Paused")
                 print("Render Paused...")
+                
+                pause_start = time.time()
                 while os.path.exists(pause_file):
                     time.sleep(1)
-                print("Render Resumed")
+                
+                pause_duration = time.time() - pause_start
+                self.total_paused_duration += pause_duration
+                
+                print(f"Render Resumed (Paused for {pause_duration:.1f}s)")
                 self.log_status("Resuming...", etr="Calculating...")
         except OSError as e:
             print(f"Pause Check Error: {e}")

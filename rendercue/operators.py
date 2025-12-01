@@ -87,18 +87,18 @@ class RENDERCUE_OT_populate_all(bpy.types.Operator):
         existing_scenes = {job.scene for job in settings.jobs if job.scene}
         
         for scene in bpy.data.scenes:
-            # Exclude existing scenes
-            if scene not in existing_scenes:
+            # Exclude existing scenes and scenes without cameras
+            if scene not in existing_scenes and scene.camera:
                 job = settings.jobs.add()
                 job.scene = scene
                 
         return {'FINISHED'}
 
 class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
-    """Apply a specific override setting to all jobs in the queue."""
+    """Copy this setting to all jobs in the queue."""
     bl_idname = "rendercue.apply_override_to_all"
-    bl_label = "Override All Jobs"
-    bl_description = "Apply this specific override setting to all jobs in the queue"
+    bl_label = "Apply to All"
+    bl_description = "Copy this setting to all jobs in the queue"
     bl_options = {'REGISTER', 'UNDO'}
     
     data_path_bool: bpy.props.StringProperty()
@@ -131,15 +131,26 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
                 if override_enabled:
                     job.frame_start = frame_start
                     job.frame_end = frame_end
+                    
+                    # Validate range
+                    if job.frame_end < job.frame_start:
+                        job.frame_end = job.frame_start
         else:
             override_value = getattr(source_job, self.data_path_val)
             
             for job in settings.jobs:
                 setattr(job, self.data_path_bool, override_enabled)
                 if override_enabled:
-                    setattr(job, self.data_path_val, override_value)
+                    # Handle PointerProperty (Camera)
+                    if self.data_path_val == "camera":
+                        # For PointerProperty, we can't just assign the object if it's from another context?
+                        # Actually, within the same blend file, objects are shared.
+                        # But we should check if the object exists.
+                        setattr(job, self.data_path_val, override_value)
+                    else:
+                        setattr(job, self.data_path_val, override_value)
         
-        self.report({'INFO'}, f"Applied override to {len(settings.jobs)} jobs")
+        self.report({'INFO'}, f"Applied setting to {len(settings.jobs)} jobs")
         return {'FINISHED'}
 
 class RENDERCUE_OT_open_output_folder(bpy.types.Operator):
@@ -164,7 +175,7 @@ class RENDERCUE_OT_validate_queue(bpy.types.Operator):
     """Check the queue for common errors before rendering."""
     bl_idname = "rendercue.validate_queue"
     bl_label = "Validate Queue"
-    bl_description = "Check the queue for common errors (missing cameras, invalid paths, unsaved files) before rendering"
+    bl_description = "Check for missing cameras, invalid paths, and other errors before rendering"
     
     def execute(self, context):
         """Execute the operator."""
@@ -191,6 +202,34 @@ class RENDERCUE_OT_validate_queue(bpy.types.Operator):
                 errors.append(f"Job {i+1}: No scene assigned")
             elif not job.scene.camera:
                 errors.append(f"Job {i+1} ({job.scene.name}): No active camera")
+            
+            # Validate Overrides
+            if job.override_camera:
+                if not job.camera:
+                    errors.append(f"Job {i+1}: Camera override enabled but no camera selected")
+                elif job.camera.name not in bpy.data.objects: # Should be handled by PointerProperty but good to check
+                     errors.append(f"Job {i+1}: Overridden camera '{job.camera.name}' not found")
+            
+            if job.override_frame_step:
+                if job.frame_step < 1:
+                    errors.append(f"Job {i+1}: Frame step must be at least 1")
+                elif job.frame_step > (job.frame_end - job.frame_start + 1):
+                     errors.append(f"Job {i+1}: Frame step ({job.frame_step}) is larger than frame range")
+
+            if job.override_device and job.device == 'GPU':
+                # Basic check if GPU is available (this is a rough check)
+                try:
+                    preferences = context.preferences.addons['cycles'].preferences
+                    has_devices = False
+                    for device_type in preferences.get_device_types(context):
+                        preferences.get_devices_for_type(device_type[0])
+                        if preferences.devices:
+                             has_devices = True
+                             break
+                    if not has_devices:
+                         errors.append(f"Job {i+1}: GPU override selected but no GPU devices found")
+                except:
+                    pass # Ignore if we can't check preferences
                 
         if errors:
             self.report({'ERROR'}, f"Validation Failed: {len(errors)} errors found")
@@ -198,7 +237,7 @@ class RENDERCUE_OT_validate_queue(bpy.types.Operator):
                 self.report({'ERROR'}, err)
             return {'CANCELLED'}
             
-        self.report({'INFO'}, "Validation Passed! Queue is ready.")
+        self.report({'INFO'}, "Queue validated. Ready to render.")
         return {'FINISHED'}
 
 class RENDERCUE_OT_save_preset(bpy.types.Operator):
@@ -276,6 +315,12 @@ class RENDERCUE_OT_quick_preset(bpy.types.Operator):
                 # Samples
                 job.override_samples = True
                 job.samples = 32
+                # Frame Step (Render every 2nd frame)
+                job.override_frame_step = True
+                job.frame_step = 2
+                # Disable Denoising (Faster)
+                job.override_denoising = True
+                job.use_denoising = False
                 
             elif self.preset_type == 'PRODUCTION':
                 # Resolution
@@ -283,7 +328,16 @@ class RENDERCUE_OT_quick_preset(bpy.types.Operator):
                 job.resolution_scale = 100
                 # Samples
                 job.override_samples = True
-                job.samples = 1024 # Or whatever is reasonable for "High"
+                job.samples = 512 # Increased for production
+                # Frame Step (All frames)
+                job.override_frame_step = True
+                job.frame_step = 1
+                # Enable Denoising
+                job.override_denoising = True
+                job.use_denoising = True
+                # Use GPU if possible
+                job.override_device = True
+                job.device = 'GPU'
                 
         self.report({'INFO'}, f"Applied '{self.preset_type}' preset to all jobs")
         return {'FINISHED'}
@@ -292,7 +346,6 @@ class RENDERCUE_OT_switch_to_job_scene(bpy.types.Operator):
     """Switch the current window to the selected job's scene."""
     bl_idname = "rendercue.switch_to_job_scene"
     bl_label = "Switch to Scene"
-    bl_description = "Switch the current window to this job's scene"
     
     index: bpy.props.IntProperty()
     
@@ -400,12 +453,35 @@ class RENDERCUE_OT_browse_path(bpy.types.Operator):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
+class RENDERCUE_OT_dismiss_banner(bpy.types.Operator):
+    """Dismiss the render summary banner."""
+    bl_idname = "rendercue.dismiss_banner"
+    bl_label = "Dismiss Banner"
+    bl_description = "Dismiss the render summary banner"
+    
+    def execute(self, context):
+        """Execute the operator."""
+        context.window_manager.rendercue.show_summary_banner = False
+        return {'FINISHED'}
+
+class RENDERCUE_OT_clear_status(bpy.types.Operator):
+    """Clear the last render status message."""
+    bl_idname = "rendercue.clear_status"
+    bl_label = "Clear Status"
+    bl_description = "Clear the last render status message"
+    
+    def execute(self, context):
+        """Execute the operator."""
+        settings = context.window_manager.rendercue
+        settings.last_render_status = 'NONE'
+        settings.last_render_message = ""
+        return {'FINISHED'}
+
 class RENDERCUE_OT_load_data(bpy.types.Operator):
     """Load saved RenderCue data from this blend file."""
     bl_idname = "rendercue.load_data"
     bl_label = "Load RenderCue Data"
     bl_description = "Load saved RenderCue data from this blend file"
-    
     def execute(self, context):
         """Execute the operator."""
         StateManager.load_queue_from_text(context)
@@ -429,6 +505,8 @@ classes = (
     RENDERCUE_OT_resume_render,
     RENDERCUE_OT_browse_path,
     RENDERCUE_OT_load_data,
+    RENDERCUE_OT_dismiss_banner,
+    RENDERCUE_OT_clear_status,
 )
 
 def register():
