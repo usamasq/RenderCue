@@ -50,6 +50,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
     _status_file = None
     _manifest_file = None
     _last_preview_path = None
+    _last_finished_frames = -1
 
     def modal(self, context, event):
         """Handle modal events (timer ticks) to check render progress."""
@@ -133,10 +134,13 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                                             job.end_time = timing['end']
                             
                             # Update Preview
-                            last_frame = status.get(STATUS_LAST_FRAME)
-                            if last_frame and last_frame != self._last_preview_path:
-                                self._last_preview_path = last_frame
-                                self.update_preview(context, last_frame)
+                            # Use finished_frames count to detect new frames because path is constant
+                            current_finished = status.get(STATUS_FINISHED_FRAMES, 0)
+                            last_frame_path = status.get(STATUS_LAST_FRAME)
+                            
+                            if last_frame_path and current_finished > self._last_finished_frames:
+                                self._last_finished_frames = current_finished
+                                self.update_preview(context, last_frame_path)
                     except (OSError, json.JSONDecodeError):
                         # File might be locked or partially written, just skip this update
                         pass
@@ -157,6 +161,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             
         # Reset state
         self._last_preview_path = None
+        self._last_finished_frames = -1
             
         if not bpy.data.is_saved:
             self.report({'ERROR'}, "Save the file before background rendering")
@@ -170,6 +175,30 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         
         # Reset global progress counters
         context.window_manager.rendercue.finished_frames_count = 0
+
+        # Clear Preview Thumbnail
+        # This ensures we don't show the previous job's last frame
+        
+        # 1. Unlink from UI property first (Critical for releasing reference)
+        context.window_manager.rendercue.preview_image = None
+        
+        # 2. Remove the data block
+        image_name = "RenderCue Preview"
+        if image_name in bpy.data.images:
+            img = bpy.data.images[image_name]
+            try:
+                bpy.data.images.remove(img)
+            except Exception as e:
+                print(f"Warning: Could not remove preview image: {e}")
+        
+        # Clear UI Collection
+        try:
+            from . import ui
+            if "main" in ui.preview_collections:
+                pcoll = ui.preview_collections["main"]
+                pcoll.clear()
+        except Exception as e:
+            print(f"Error clearing preview: {e}")
             
         # Setup Paths
         temp_dir = bpy.app.tempdir
@@ -333,6 +362,9 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         
         # Force update
         img.update()
+        
+        # CRITICAL: Re-assign property to trigger UI update
+        # Even if it's the same object, this assignment notifies the UI system
         settings.preview_image = img
         
         # Update UI Preview Collection
@@ -340,8 +372,25 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             from . import ui
             if "main" in ui.preview_collections:
                 pcoll = ui.preview_collections["main"]
-                pcoll.clear()
-                pcoll.load("thumbnail", filepath, 'IMAGE')
+                
+                # Dynamic Key Strategy:
+                # Force UI update by using a new key every time.
+                # This defeats Blender's icon caching mechanism.
+                old_key = settings.preview_icon_key
+                new_key = f"thumbnail_{int(time.time() * 1000)}"
+                print(f"DEBUG: Loading preview {new_key} from {filepath}")
+                
+                # Load new preview
+                pcoll.load(new_key, filepath, 'IMAGE')
+                
+                # Update property so UI knows what to show
+                settings.preview_icon_key = new_key
+                print(f"DEBUG: Updated settings.preview_icon_key to {new_key}")
+                
+                # Cleanup old key to prevent memory leaks
+                if old_key and old_key in pcoll and old_key != new_key:
+                    del pcoll[old_key]
+                    
         except Exception as e:
             print(f"Preview Collection Error: {e}")
         

@@ -392,6 +392,13 @@ class RenderCueSettings(bpy.types.PropertyGroup):
     jobs: bpy.props.CollectionProperty(type=RenderCueJob, options={'SKIP_SAVE'})
     active_job_index: bpy.props.IntProperty(name="Active Job Index", default=0, options={'SKIP_SAVE'})
     
+    # Dynamic key for preview collection to force UI updates
+    preview_icon_key: bpy.props.StringProperty(
+        name="Preview Icon Key",
+        default="thumbnail",
+        options={'HIDDEN', 'SKIP_SAVE'}
+    )
+    
     output_location: bpy.props.EnumProperty(
         name="Output Location",
         items=[
