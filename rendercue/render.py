@@ -187,6 +187,8 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         if image_name in bpy.data.images:
             img = bpy.data.images[image_name]
             try:
+                # Set fake user to avoid ref count errors
+                img.use_fake_user = True
                 bpy.data.images.remove(img)
             except Exception as e:
                 print(f"Warning: Could not remove preview image: {e}")
@@ -220,16 +222,23 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         StateManager.save_state(context, self._manifest_file)
         
         # Spawn Process
-        worker_script = os.path.join(os.path.dirname(__file__), "worker.py")
         blend_file = bpy.data.filepath
+        
+        # Build Python expression to run worker directly
+        # Add addon directory to sys.path so it can be imported
+        addon_dir = os.path.dirname(os.path.dirname(__file__))
+        python_code = (
+            f"import sys; "
+            f"sys.path.insert(0, {repr(addon_dir)}); "
+            f"from rendercue.core import BackgroundWorker; "
+            f"worker = BackgroundWorker({repr(self._manifest_file)}, {repr(self._status_file)}); "
+            f"worker.run()"
+        )
         
         cmd = [
             bpy.app.binary_path,
             "-b", blend_file,
-            "-P", worker_script,
-            "--",
-            "--manifest", self._manifest_file,
-            "--status", self._status_file
+            "--python-expr", python_code
         ]
         
         global _bg_process
@@ -349,6 +358,8 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                 img.reload()
             except:
                 # Fallback: recreate if reload fails
+                # Set fake user before removing to avoid ref count error
+                img.use_fake_user = True
                 bpy.data.images.remove(img)
                 img = None
         
@@ -378,14 +389,12 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                 # This defeats Blender's icon caching mechanism.
                 old_key = settings.preview_icon_key
                 new_key = f"thumbnail_{int(time.time() * 1000)}"
-                print(f"DEBUG: Loading preview {new_key} from {filepath}")
                 
                 # Load new preview
                 pcoll.load(new_key, filepath, 'IMAGE')
                 
                 # Update property so UI knows what to show
                 settings.preview_icon_key = new_key
-                print(f"DEBUG: Updated settings.preview_icon_key to {new_key}")
                 
                 # Cleanup old key to prevent memory leaks
                 if old_key and old_key in pcoll and old_key != new_key:

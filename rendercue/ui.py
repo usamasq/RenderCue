@@ -286,12 +286,9 @@ class RenderCuePanelMixin:
                     pcoll = preview_collections[UI_PREVIEW_COLLECTION_KEY]
                     # Use dynamic key from settings to ensure we get the latest icon
                     icon_key = settings.preview_icon_key
-                    # print(f"DEBUG: UI trying to draw {icon_key}")
                     if icon_key in pcoll:
                         col = box.column()
                         col.template_icon(icon_value=pcoll[icon_key].icon_id, scale=8.0)
-                    else:
-                        print(f"DEBUG: Key {icon_key} not found in pcoll keys: {list(pcoll.keys())}")
         
         # Controls
         box.separator()

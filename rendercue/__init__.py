@@ -24,6 +24,19 @@ def register():
     ui.register()
     render.register()
     preferences.register()
+    
+    # Register handlers if auto-save is enabled
+    # We need to delay this slightly to ensure preferences are loaded
+    def register_handlers_delayed():
+        try:
+            prefs = bpy.context.preferences.addons[__package__].preferences
+            if prefs.auto_save_queue:
+                from .core import StateManager
+                StateManager.register_handlers()
+        except (AttributeError, KeyError):
+            pass
+            
+    bpy.app.timers.register(register_handlers_delayed, first_interval=0.1)
 
 def unregister():
     preferences.unregister()
