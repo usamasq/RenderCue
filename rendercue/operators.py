@@ -103,40 +103,86 @@ class RENDERCUE_OT_populate_all(bpy.types.Operator):
         return {'FINISHED'}
 
 class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
-    """Copy this setting to all jobs in the queue."""
+    """Copy settings to all jobs in the queue."""
     bl_idname = "rendercue.apply_override_to_all"
     bl_label = "Apply to All"
-    bl_description = "Copy this setting to all jobs in the queue"
-    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
+    bl_description = "Copy selected settings to all jobs in the queue"
+    bl_options = {'REGISTER', 'UNDO'}
     
+    # Internal props to know what was clicked
     data_path_bool: bpy.props.StringProperty()
     data_path_val: bpy.props.StringProperty()
+    
+    # Selection props
+    apply_output: bpy.props.BoolProperty(name="Output Path")
+    apply_frame_range: bpy.props.BoolProperty(name="Frame Range")
+    apply_resolution: bpy.props.BoolProperty(name="Resolution")
+    apply_samples: bpy.props.BoolProperty(name="Samples")
+    apply_camera: bpy.props.BoolProperty(name="Camera")
+    apply_engine: bpy.props.BoolProperty(name="Render Engine")
+    apply_device: bpy.props.BoolProperty(name="Device")
+    apply_view_layer: bpy.props.BoolProperty(name="View Layer")
+    apply_frame_step: bpy.props.BoolProperty(name="Frame Step")
+    apply_transparent: bpy.props.BoolProperty(name="Transparent")
+    apply_compositor: bpy.props.BoolProperty(name="Compositor")
+    apply_denoising: bpy.props.BoolProperty(name="Denoising")
 
     def invoke(self, context, event):
-        """Show confirmation dialog before applying to all jobs."""
+        """Show confirmation dialog with checkboxes."""
         settings = context.window_manager.rendercue
+        if not settings.jobs:
+            return {'CANCELLED'}
+            
+        source_job = settings.jobs[settings.active_job_index]
         
-        if not settings.jobs or len(settings.jobs) <= 1:
-            # If only 0-1 jobs, no need for confirmation
-            return self.execute(context)
+        # Reset all to False first
+        for prop in self.__annotations__:
+            if prop.startswith("apply_"):
+                setattr(self, prop, False)
         
-        # Build confirmation message
-        job_count = len(settings.jobs)
-        override_name = self.data_path_bool.replace('override_', '').replace('_', ' ').title()
-        
-        return context.window_manager.invoke_confirm(
-            self,
-            event,
-            title="Apply to All Jobs",
-            message=f"Apply '{override_name}' to all {job_count} jobs in queue?",
-            confirm_text="Apply",
-            icon='QUESTION'
-        )
+        # Enable the one that was clicked
+        # Map data_path_bool (e.g. "override_resolution") to property name (e.g. "apply_resolution")
+        clicked_prop = self.data_path_bool.replace("override_", "apply_")
+        if hasattr(self, clicked_prop):
+            setattr(self, clicked_prop, True)
+            
+        return context.window_manager.invoke_props_dialog(self, width=300)
 
-    @classmethod
-    def poll(cls, context):
-        """Check if operator can run."""
-        return context.window_manager.rendercue.jobs and context.window_manager.rendercue.active_job_index >= 0
+    def draw(self, context):
+        layout = self.layout
+        settings = context.window_manager.rendercue
+        source_job = settings.jobs[settings.active_job_index]
+        
+        layout.label(text="Select overrides to apply to all jobs:", icon='DUPLICATE')
+        layout.separator()
+        
+        col = layout.column(align=True)
+        
+        # Only show options that are currently active on the source job
+        # Mapping: (Apply Prop, Source Bool Prop, Label)
+        mappings = [
+            ("apply_output", "override_output", "Output Path"),
+            ("apply_frame_range", "override_frame_range", "Frame Range"),
+            ("apply_resolution", "override_resolution", "Resolution"),
+            ("apply_samples", "override_samples", "Samples"),
+            ("apply_camera", "override_camera", "Camera"),
+            ("apply_engine", "override_engine", "Render Engine"),
+            ("apply_device", "override_device", "Device"),
+            ("apply_view_layer", "override_view_layer", "View Layer"),
+            ("apply_frame_step", "override_frame_step", "Frame Step"),
+            ("apply_transparent", "override_transparent", "Transparent"),
+            ("apply_compositor", "override_compositor", "Compositor"),
+            ("apply_denoising", "override_denoising", "Denoising"),
+        ]
+        
+        has_options = False
+        for apply_prop, source_bool, label in mappings:
+            if getattr(source_job, source_bool, False):
+                col.prop(self, apply_prop, text=label)
+                has_options = True
+                
+        if not has_options:
+            layout.label(text="No active overrides on this job.", icon='INFO')
 
     def execute(self, context):
         """Execute the operator."""
@@ -147,39 +193,52 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
             
         source_job = settings.jobs[settings.active_job_index]
         
-        # Get values from source
-        override_enabled = getattr(source_job, self.data_path_bool)
+        # Mapping: Apply Prop -> (Bool Prop, Value Prop)
+        # Note: frame_range needs special handling
+        mappings = {
+            "apply_output": ("override_output", "output_path"),
+            "apply_frame_range": ("override_frame_range", "frame_range"), # Special
+            "apply_resolution": ("override_resolution", "resolution_scale"),
+            "apply_samples": ("override_samples", "samples"),
+            "apply_camera": ("override_camera", "camera"),
+            "apply_engine": ("override_engine", "render_engine"),
+            "apply_device": ("override_device", "device"),
+            "apply_view_layer": ("override_view_layer", "view_layer"),
+            "apply_frame_step": ("override_frame_step", "frame_step"),
+            "apply_transparent": ("override_transparent", "use_transparent"),
+            "apply_compositor": ("override_compositor", "use_compositor"),
+            "apply_denoising": ("override_denoising", "use_denoising"),
+        }
         
-        # Special case for frame_range (two values)
-        if self.data_path_val == "frame_range":
-            frame_start = source_job.frame_start
-            frame_end = source_job.frame_end
-            
-            for job in settings.jobs:
-                setattr(job, self.data_path_bool, override_enabled)
-                if override_enabled:
-                    job.frame_start = frame_start
-                    job.frame_end = frame_end
+        applied_count = 0
+        
+        for apply_prop, (bool_prop, val_prop) in mappings.items():
+            if getattr(self, apply_prop):
+                applied_count += 1
+                
+                # Get value from source
+                override_enabled = getattr(source_job, bool_prop)
+                
+                # Special case for frame_range
+                if val_prop == "frame_range":
+                    frame_start = source_job.frame_start
+                    frame_end = source_job.frame_end
                     
-                    # Validate range
-                    if job.frame_end < job.frame_start:
-                        job.frame_end = job.frame_start
-        else:
-            override_value = getattr(source_job, self.data_path_val)
-            
-            for job in settings.jobs:
-                setattr(job, self.data_path_bool, override_enabled)
-                if override_enabled:
-                    # Handle PointerProperty (Camera)
-                    if self.data_path_val == "camera":
-                        # For PointerProperty, we can't just assign the object if it's from another context?
-                        # Actually, within the same blend file, objects are shared.
-                        # But we should check if the object exists.
-                        setattr(job, self.data_path_val, override_value)
-                    else:
-                        setattr(job, self.data_path_val, override_value)
+                    for job in settings.jobs:
+                        setattr(job, bool_prop, override_enabled)
+                        if override_enabled:
+                            job.frame_start = frame_start
+                            job.frame_end = frame_end
+                            if job.frame_end < job.frame_start:
+                                job.frame_end = job.frame_start
+                else:
+                    override_value = getattr(source_job, val_prop)
+                    for job in settings.jobs:
+                        setattr(job, bool_prop, override_enabled)
+                        if override_enabled:
+                            setattr(job, val_prop, override_value)
         
-        self.report({'INFO'}, f"Applied setting to {len(settings.jobs)} jobs")
+        self.report({'INFO'}, f"Applied {applied_count} settings to {len(settings.jobs)} jobs")
         return {'FINISHED'}
 
 class RENDERCUE_OT_open_output_folder(bpy.types.Operator):

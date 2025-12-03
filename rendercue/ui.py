@@ -500,32 +500,55 @@ class RenderCuePanelMixin:
         
         # Output Configuration Group
         box = layout.box()
-        row = box.row()
-        row.label(text="Output Settings", icon='PREFERENCES')
+        row = box.row(align=True)
         
-        col = box.column(align=True)
-        col.use_property_split = True
-        col.use_property_decorate = False
+        # Split Header: Title (Left) | Icon (Right)
+        split = row.split(factor=0.6)
         
-        # Location Selector
-        col.prop(settings, "output_location", expand=True)
+        # Left: Toggle
+        left = split.row(align=True)
+        left.alignment = 'LEFT'
+        left.prop(
+            settings, 
+            "ui_show_output", 
+            icon='TRIA_DOWN' if settings.ui_show_output else 'TRIA_RIGHT',
+            text="Global Output",
+            emboss=False
+        )
         
-        if settings.output_location == 'CUSTOM':
-            # Custom Path Input
-            row = col.row(align=True)
-            row.prop(settings, "global_output_path", text="Path")
-            # Browse Button
-            op = row.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
-            op.target_property = "global_output_path"
-        else:
-            # Informative Label for Default
-            row = col.row()
-            row.label(text="Base Path: // (Same as .blend file)", icon='FILE_BLEND')
+        # Right: Icon
+        right = split.row(align=True)
+        right.alignment = 'RIGHT'
+        right.label(text="", icon='FILE_FOLDER')
+        
+        if settings.ui_show_output:
+            col = box.column(align=True)
+            col.use_property_split = True
+            col.use_property_decorate = False
             
-        # Informative Label for Structure
-        col.separator()
-        row = col.row()
-        row.label(text="Structure: [Base Path] / [Scene Name] /", icon='INFO')
+            # Location Selector (Segmented)
+            col.prop(settings, "output_location", expand=True)
+            
+            if settings.output_location == 'CUSTOM':
+                # Custom Path Input
+                row = col.row(align=True)
+                row.prop(settings, "global_output_path", text="Path")
+                # Browse Button
+                op = row.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
+                op.target_property = "global_output_path"
+                
+            # Visual Path Preview
+            col.separator()
+            preview_box = box.box()
+            preview_box.scale_y = 0.8
+            
+            row = preview_box.row()
+            row.alignment = 'LEFT'
+            
+            if settings.output_location == 'DEFAULT':
+                row.label(text="Path: // [Scene Name] /", icon='FILE_BLEND')
+            else:
+                row.label(text="Path: [Custom] / [Scene Name] /", icon='FILE_FOLDER')
         
         # Selected Job Settings (Overrides)
         if settings.jobs:
@@ -540,62 +563,94 @@ class RenderCuePanelMixin:
             
             # Header
             override_info = ui_helpers.get_override_summary(job)
-            row = box.row()
+            row = box.row(align=True)
+            
+            # Split Header
+            split = row.split(factor=0.7)
+            
+            # Left: Title
+            left = split.row(align=True)
+            left.alignment = 'LEFT'
             
             header_text = f"Overrides: {job.scene.name if job.scene else 'None'}"
             if override_info['count'] > 0:
                 header_text += f" ({override_info['count']} active)"
                 
-            row.label(text=header_text, icon='MODIFIER')
+            left.prop(
+                settings,
+                "ui_show_overrides_main",
+                icon='TRIA_DOWN' if settings.ui_show_overrides_main else 'TRIA_RIGHT',
+                text=header_text,
+                emboss=False
+            )
+            
+            # Right: Icon
+            right = split.row(align=True)
+            right.alignment = 'RIGHT'
+            right.label(text="", icon='MODIFIER')
 
-            # Create parent column for all collapsible sections
-            parent_col = box.column(align=True)
-            
-            # Collapsible Summary
-            if override_info['count'] > 0:
-                summary_box = parent_col.box()
-                summary_header = summary_box.row()
-                summary_header.prop(
-                    settings,
-                    "ui_show_override_summary",
-                    icon='TRIA_DOWN' if settings.ui_show_override_summary else 'TRIA_RIGHT',
-                    text=f"Active Overrides ({override_info['count']})",
-                    emboss=False
-                )
-                
-                if settings.ui_show_override_summary:
-                    summary_col = summary_box.column(align=True)
-                    summary_col.scale_y = 0.75
+            if settings.ui_show_overrides_main:
+                # Collapsible Summary (Dashboard)
+                if override_info['count'] > 0:
+                    summary_box = box.box()
+                    summary_header = summary_box.row()
+                    summary_header.prop(
+                        settings,
+                        "ui_show_override_summary",
+                        icon='TRIA_DOWN' if settings.ui_show_override_summary else 'TRIA_RIGHT',
+                        text=f"Active Overrides ({override_info['count']})",
+                        emboss=False
+                    )
                     
-                    for name, value in override_info['overrides']:
-                        row = summary_col.row()
-                        row.label(text=f"• {name}: ", icon='DOT')
-                        row.label(text=value)
-            
-            parent_col.separator()
+                    if settings.ui_show_override_summary:
+                        summary_col = summary_box.column(align=True)
+                        # Removed scale_y reduction for better spacing
+                        
+                        for name, value, bool_prop, val_prop in override_info['overrides']:
+                            row = summary_col.row(align=True)
+                            
+                            # Split Layout: Label (40%) | Value (30%) | Button (30%)
+                            split = row.split(factor=0.4)
+                            split.label(text=name, icon='DOT')
+                            
+                            sub = split.split(factor=0.5)
+                            sub.label(text=value)
+                            
+                            # Apply to All Button
+                            op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
+                            op.data_path_bool = bool_prop
+                            op.data_path_val = val_prop
+                
+                # Create parent column for all collapsible sections
+                parent_col = box.column(align=True)
+                parent_col.separator()
             
             # Helper for collapsible group styling
             def draw_collapsible_box(layout, settings, prop_name, title, icon, is_active=False):
                 box = layout.box()
                 row = box.row(align=True)
                 
-                # Toggle Icon
+                # Split Header: Title (Left) | Status & Icon (Right)
+                split = row.split(factor=0.6)
+                
+                # Left: Toggle
+                left = split.row(align=True)
+                left.alignment = 'LEFT'
+                
                 is_expanded = getattr(settings, prop_name)
                 icon_state = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
                 
-                # Header with toggle button
-                row.alignment = 'LEFT'
-                row.prop(settings, prop_name, icon=icon_state, text=title, emboss=False)
+                left.prop(settings, prop_name, icon=icon_state, text=title, emboss=False)
                 
-                # Spacer to push icons to the right
-                row.label(text="")
+                # Right: Status + Icon
+                right = split.row(align=True)
+                right.alignment = 'RIGHT'
                 
-                # Active Indicator
                 if is_active:
-                    row.label(text="[Active]", icon='CHECKMARK')
+                    right.label(text="[Active]", icon='CHECKMARK')
+                    right.separator()
                 
-                # Group Icon
-                row.label(text="", icon=icon)
+                right.label(text="", icon=icon)
                 
                 if is_expanded:
                     # Add some padding inside the box
@@ -612,7 +667,7 @@ class RenderCuePanelMixin:
             if col:
                 # Output Path
                 row = col.row(align=True)
-                row.prop(job, "override_output", text="Output Path Override")
+                row.prop(job, "override_output", text="Output Path")
                 
                 if job.override_output:
                     sub_col = col.column(align=True)
@@ -626,11 +681,11 @@ class RenderCuePanelMixin:
                     op = sub.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
                     op.target_property = "job_output_path"
                 
-                col.separator()
+
 
                 # Camera Override
                 row = col.row(align=True)
-                row.prop(job, "override_camera", text="Camera Override")
+                row.prop(job, "override_camera", text="Camera")
                 
                 if job.override_camera:
                     sub_col = col.column(align=True)
@@ -638,11 +693,11 @@ class RenderCuePanelMixin:
                     sub_col.use_property_decorate = False
                     sub_col.prop(job, "camera", text="Camera")
                 
-                col.separator()
+
 
                 # Transparent Background
                 row = col.row(align=True)
-                row.prop(job, "override_transparent", text="Override Transparency")
+                row.prop(job, "override_transparent", text="Transparent Background")
                 
                 if job.override_transparent:
                     sub_col = col.column(align=True)
@@ -650,19 +705,19 @@ class RenderCuePanelMixin:
                     sub_col.use_property_decorate = False
                     sub_col.prop(job, "film_transparent", text="Transparent")
                 
-                col.separator()
+
 
                 # Compositor
                 row = col.row(align=True)
-                row.prop(job, "override_compositor", text="Compositor Override")
+                row.prop(job, "override_compositor", text="Compositor")
                 
                 if job.override_compositor:
                     sub_col = col.column(align=True)
                     sub_col.use_property_split = True
                     sub_col.use_property_decorate = False
-                    sub_col.prop(job, "use_compositor", text="Use Compositor")
+                    sub_col.prop(job, "use_compositor", text="Enable")
                     
-                col.separator()
+
             
             # Group: Range & Resolution
             is_dim_active = (job.override_frame_range or job.override_frame_step or 
@@ -672,13 +727,9 @@ class RenderCuePanelMixin:
             if col:
                 # Frame Range
                 row = col.row(align=True)
-                row.prop(job, "override_frame_range", text="Frame Range Override")
+                row.prop(job, "override_frame_range", text="Frame Range")
                 
-                sub = row.row(align=True)
-                sub.scale_x = 1.2
-                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
-                op.data_path_bool = "override_frame_range"
-                op.data_path_val = "frame_range"
+
                 
                 if job.override_frame_range:
                     sub_col = col.column(align=True)
@@ -688,11 +739,11 @@ class RenderCuePanelMixin:
                     sub_col.prop(job, "frame_start", text="Start")
                     sub_col.prop(job, "frame_end", text="End")
 
-                col.separator()
+
 
                 # Frame Step
                 row = col.row(align=True)
-                row.prop(job, "override_frame_step", text="Frame Step Override")
+                row.prop(job, "override_frame_step", text="Frame Step")
                 
                 if job.override_frame_step:
                     sub_col = col.column(align=True)
@@ -706,17 +757,13 @@ class RenderCuePanelMixin:
                         render_frames = (total_frames + job.frame_step - 1) // job.frame_step
                         sub_col.label(text=f"Renders approx. {render_frames} frames", icon='INFO')
                 
-                col.separator()
+
 
                 # Resolution
                 row = col.row(align=True)
-                row.prop(job, "override_resolution", text="Resolution Override")
+                row.prop(job, "override_resolution", text="Resolution")
                 
-                sub = row.row(align=True)
-                sub.scale_x = 1.2
-                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
-                op.data_path_bool = "override_resolution"
-                op.data_path_val = "resolution_scale"
+
                 
                 if job.override_resolution:
                     sub_col = col.column(align=True)
@@ -724,20 +771,16 @@ class RenderCuePanelMixin:
                     sub_col.use_property_decorate = False
                     sub_col.prop(job, "resolution_scale", text="Scale %")
                     
-                col.separator()
+
             
             # Group: Format
             col = draw_collapsible_box(parent_col, settings, "ui_show_format", "Format", 'IMAGE_DATA', is_active=job.override_format)
             
             if col:
                 row = col.row(align=True)
-                row.prop(job, "override_format", text="Format Override")
+                row.prop(job, "override_format", text="Format")
                 
-                sub = row.row(align=True)
-                sub.scale_x = 1.2
-                op = sub.operator("rendercue.apply_override_to_all", text="Override All", icon='DUPLICATE')
-                op.data_path_bool = "override_format"
-                op.data_path_val = "render_format"
+
                 
                 col.separator()
                 
@@ -747,7 +790,7 @@ class RenderCuePanelMixin:
                     sub_col.use_property_decorate = False
                     sub_col.prop(job, "render_format", text="File Format")
                     
-                col.separator()
+
             
             # Group: Render
             is_render_active = (job.override_engine or job.override_view_layer or
@@ -759,13 +802,9 @@ class RenderCuePanelMixin:
             if col:
                 # Engine
                 row = col.row(align=True)
-                row.prop(job, "override_engine", text="Engine Override")
+                row.prop(job, "override_engine", text="Engine")
                 
-                sub = row.row(align=True)
-                sub.scale_x = 1.2
-                op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
-                op.data_path_bool = "override_engine"
-                op.data_path_val = "render_engine"
+
                 
                 if job.override_engine:
                     sub_col = col.column(align=True)
@@ -783,13 +822,9 @@ class RenderCuePanelMixin:
                 # Samples (Cycles/Eevee only)
                 if effective_engine in ['CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT']:
                     row = col.row(align=True)
-                    row.prop(job, "override_samples", text="Samples Override")
+                    row.prop(job, "override_samples", text="Samples")
                     
-                    sub = row.row(align=True)
-                    sub.scale_x = 1.2
-                    op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
-                    op.data_path_bool = "override_samples"
-                    op.data_path_val = "samples"
+
                     
                     if job.override_samples:
                         sub_col = col.column(align=True)
@@ -797,7 +832,7 @@ class RenderCuePanelMixin:
                         sub_col.use_property_decorate = False
                         sub_col.prop(job, "samples", text="Samples")
                     
-                    col.separator()
+
                 
                 # === Cycles-Only Section ===
                 if effective_engine == 'CYCLES':
@@ -806,56 +841,52 @@ class RenderCuePanelMixin:
                     
                     # Denoising
                     row = col.row(align=True)
-                    row.prop(job, "override_denoising", text="Denoising Override")
+                    row.prop(job, "override_denoising", text="Denoising")
                     if job.override_denoising:
                         sub_col = col.column(align=True)
                         sub_col.use_property_split = True
                         sub_col.use_property_decorate = False
                         sub_col.prop(job, "use_denoising", text="Denoise")
-                    col.separator()
+
                     
                     # Device
                     row = col.row(align=True)
-                    row.prop(job, "override_device", text="Device Override")
+                    row.prop(job, "override_device", text="Device")
                     if job.override_device:
                         sub_col = col.column(align=True)
                         sub_col.use_property_split = True
                         sub_col.use_property_decorate = False
                         sub_col.prop(job, "device", text="Device")
-                    col.separator()
+
                     
                     # Time Limit
                     row = col.row(align=True)
-                    row.prop(job, "override_time_limit", text="Time Limit Override")
+                    row.prop(job, "override_time_limit", text="Time Limit")
                     if job.override_time_limit:
                         sub_col = col.column(align=True)
                         sub_col.use_property_split = True
                         sub_col.use_property_decorate = False
                         sub_col.prop(job, "time_limit", text="Time Limit")
-                    col.separator()
+
                     
                     # Persistent Data
                     row = col.row(align=True)
-                    row.prop(job, "override_persistent_data", text="Persistent Data Override")
+                    row.prop(job, "override_persistent_data", text="Persistent Data")
                     if job.override_persistent_data:
                         sub_col = col.column(align=True)
                         sub_col.use_property_split = True
                         sub_col.use_property_decorate = False
                         sub_col.prop(job, "use_persistent_data", text="Persistent Data")
-                    col.separator()
+
                 
 
 
                 # View Layer
                 if job.scene and len(job.scene.view_layers) > 1:
                     row = col.row(align=True)
-                    row.prop(job, "override_view_layer", text="View Layer Override")
+                    row.prop(job, "override_view_layer", text="View Layer")
                     
-                    sub = row.row(align=True)
-                    sub.scale_x = 1.2
-                    op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
-                    op.data_path_bool = "override_view_layer"
-                    op.data_path_val = "view_layer"
+
                     
                     col.separator()
                     
@@ -875,6 +906,42 @@ class RenderCuePanelMixin:
         row = box.row()
         row.scale_y = 2.0
         row.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="START RENDER QUEUE")
+
+class RENDERCUE_MT_apply_to_all_menu(bpy.types.Menu):
+    bl_label = "Apply to All Jobs"
+    bl_idname = "RENDERCUE_MT_apply_to_all_menu"
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.window_manager.rendercue
+        if not settings.jobs or settings.active_job_index < 0:
+            return
+            
+        job = settings.jobs[settings.active_job_index]
+        
+        # Helper to add item
+        def add_item(prop_bool, prop_val, text):
+            if getattr(job, prop_bool):
+                op = layout.operator("rendercue.apply_override_to_all", text=text)
+                op.data_path_bool = prop_bool
+                op.data_path_val = prop_val
+
+        # Add items based on active overrides
+        add_item("override_output", "output_path", "Output Path")
+        add_item("override_camera", "camera", "Camera")
+        add_item("override_transparent", "film_transparent", "Transparent Background")
+        add_item("override_compositor", "use_compositor", "Compositor")
+        add_item("override_frame_range", "frame_range", "Frame Range")
+        add_item("override_frame_step", "frame_step", "Frame Step")
+        add_item("override_resolution", "resolution_scale", "Resolution")
+        add_item("override_format", "render_format", "Format")
+        add_item("override_engine", "render_engine", "Engine")
+        add_item("override_samples", "samples", "Samples")
+        add_item("override_denoising", "use_denoising", "Denoising")
+        add_item("override_device", "device", "Device")
+        add_item("override_time_limit", "time_limit", "Time Limit")
+        add_item("override_persistent_data", "use_persistent_data", "Persistent Data")
+        add_item("override_view_layer", "view_layer", "View Layer")
 
 class RENDERCUE_MT_presets_menu(bpy.types.Menu):
     """Menu for RenderCue presets."""
@@ -969,6 +1036,7 @@ def draw_status_bar(self, context):
 def register():
     bpy.utils.register_class(RENDER_UL_render_cue_jobs)
     bpy.utils.register_class(RENDER_PT_render_cue)
+    bpy.utils.register_class(RENDERCUE_MT_apply_to_all_menu)
     bpy.utils.register_class(RENDERCUE_MT_presets_menu)
     bpy.utils.register_class(RENDER_PT_render_cue_dashboard)
     bpy.utils.register_class(VIEW3D_PT_render_cue)
@@ -998,6 +1066,7 @@ def unregister():
         VIEW3D_PT_render_cue,
         RENDER_PT_render_cue_dashboard,
         RENDERCUE_MT_presets_menu,
+        RENDERCUE_MT_apply_to_all_menu,
         RENDER_PT_render_cue,
         RENDER_UL_render_cue_jobs,
     ):

@@ -689,6 +689,7 @@ class RenderCueSettings(bpy.types.PropertyGroup):
 
     # UI State (Collapse/Expand)
     ui_show_output: bpy.props.BoolProperty(name="Show Output", default=True, options={'SKIP_SAVE'})
+    ui_show_overrides_main: bpy.props.BoolProperty(name="Show Overrides", default=True, options={'SKIP_SAVE'})
     ui_show_dimensions: bpy.props.BoolProperty(name="Show Dimensions", default=False, options={'SKIP_SAVE'})
     ui_show_format: bpy.props.BoolProperty(name="Show Format", default=False, options={'SKIP_SAVE'})
     ui_show_render: bpy.props.BoolProperty(name="Show Render", default=False, options={'SKIP_SAVE'})

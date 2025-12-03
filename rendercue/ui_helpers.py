@@ -90,35 +90,35 @@ def get_override_summary(job):
     
     # Collect all active overrides
     if job.override_frame_range:
-        active.append(('Frame Range', f"{job.frame_start}-{job.frame_end}"))
+        active.append(('Frame Range', f"{job.frame_start}-{job.frame_end}", "override_frame_range", "frame_range"))
     if job.override_frame_step:
-        active.append(('Frame Step', str(job.frame_step)))
+        active.append(('Frame Step', str(job.frame_step), "override_frame_step", "frame_step"))
     if job.override_camera and job.camera:
-        active.append(('Camera', job.camera.name))
+        active.append(('Camera', job.camera.name, "override_camera", "camera"))
     if job.override_resolution:
-        active.append(('Resolution', f"{job.resolution_scale}%"))
+        active.append(('Resolution', f"{job.resolution_scale}%", "override_resolution", "resolution_scale"))
     if job.override_samples:
-        active.append(('Samples', str(job.samples)))
+        active.append(('Samples', str(job.samples), "override_samples", "samples"))
     if job.override_engine:
-        active.append(('Engine', job.render_engine))
+        active.append(('Engine', job.render_engine, "override_engine", "render_engine"))
     if job.override_view_layer:
-        active.append(('View Layer', job.view_layer))
+        active.append(('View Layer', job.view_layer, "override_view_layer", "view_layer"))
     if job.override_format:
-        active.append(('Format', job.render_format))
+        active.append(('Format', job.render_format, "override_format", "render_format"))
     if job.override_output:
-        active.append(('Output', 'Custom'))
+        active.append(('Output', 'Custom', "override_output", "output_path"))
     if job.override_transparent:
-        active.append(('Transparent', 'Yes' if job.film_transparent else 'No'))
+        active.append(('Transparent', 'Yes' if job.film_transparent else 'No', "override_transparent", "film_transparent"))
     if job.override_compositor:
-        active.append(('Compositor', 'Yes' if job.use_compositor else 'No'))
+        active.append(('Compositor', 'Yes' if job.use_compositor else 'No', "override_compositor", "use_compositor"))
     if job.override_denoising:
-        active.append(('Denoising', 'Yes' if job.use_denoising else 'No'))
+        active.append(('Denoising', 'Yes' if job.use_denoising else 'No', "override_denoising", "use_denoising"))
     if job.override_device:
-        active.append(('Device', job.device))
+        active.append(('Device', job.device, "override_device", "device"))
     if job.override_time_limit and job.time_limit > 0:
-        active.append(('Time Limit', f"{job.time_limit}s"))
+        active.append(('Time Limit', f"{job.time_limit}s", "override_time_limit", "time_limit"))
     if job.override_persistent_data:
-        active.append(('Persistent Data', 'Yes' if job.use_persistent_data else 'No'))
+        active.append(('Persistent Data', 'Yes' if job.use_persistent_data else 'No', "override_persistent_data", "use_persistent_data"))
     
     
     return {'count': len(active), 'overrides': active}
