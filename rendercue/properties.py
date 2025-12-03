@@ -11,6 +11,109 @@ def update_frame_range(self, context):
         if self.frame_end < self.frame_start:
              self.frame_end = self.frame_start
 
+# ==================== UPDATE CALLBACKS FOR DYNAMIC DEFAULTS ====================
+
+def update_override_engine(self, context):
+    if self.override_engine and self.scene:
+        self.render_engine = self.scene.render.engine
+
+def update_override_view_layer(self, context):
+    if self.override_view_layer and self.scene and self.scene.view_layers:
+        # Default to the first one as we can't know the "active" one easily from here
+        self.view_layer = self.scene.view_layers[0].name
+
+def update_override_camera(self, context):
+    if self.override_camera and self.scene and self.scene.camera:
+        self.camera = self.scene.camera
+
+def update_override_frame_step(self, context):
+    if self.override_frame_step and self.scene:
+        self.frame_step = self.scene.frame_step
+
+def update_override_transparent(self, context):
+    if self.override_transparent and self.scene:
+        self.film_transparent = self.scene.render.film_transparent
+
+def update_override_compositor(self, context):
+    if self.override_compositor and self.scene:
+        self.use_compositor = self.scene.render.use_compositing
+
+def update_override_frame_range(self, context):
+    if self.override_frame_range and self.scene:
+        self.frame_start = self.scene.frame_start
+        self.frame_end = self.scene.frame_end
+
+def update_override_resolution(self, context):
+    if self.override_resolution and self.scene:
+        self.resolution_scale = self.scene.render.resolution_percentage
+
+def update_override_samples(self, context):
+    if self.override_samples and self.scene:
+        # Determine effective engine
+        engine = self.scene.render.engine
+        if self.override_engine:
+            engine = self.render_engine
+            
+        if engine == 'CYCLES':
+            self.samples = self.scene.cycles.samples
+        elif engine in ('BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'):
+            try:
+                self.samples = self.scene.eevee.taa_render_samples
+            except AttributeError:
+                try:
+                    self.samples = self.scene.eevee.samples
+                except AttributeError:
+                    pass
+
+def update_override_format(self, context):
+    if self.override_format and self.scene:
+        self.render_format = self.scene.render.image_settings.file_format
+
+def update_override_denoising(self, context):
+    if self.override_denoising and self.scene:
+        # Only relevant for Cycles usually, but check effective engine
+        engine = self.scene.render.engine
+        if self.override_engine:
+            engine = self.render_engine
+            
+        if engine == 'CYCLES':
+            try:
+                self.use_denoising = self.scene.cycles.use_denoising
+            except AttributeError:
+                pass
+
+def update_override_device(self, context):
+    if self.override_device and self.scene:
+        engine = self.scene.render.engine
+        if self.override_engine:
+            engine = self.render_engine
+            
+        if engine == 'CYCLES':
+            try:
+                self.device = self.scene.cycles.device
+            except AttributeError:
+                pass
+
+def update_override_time_limit(self, context):
+    if self.override_time_limit and self.scene:
+        engine = self.scene.render.engine
+        if self.override_engine:
+            engine = self.render_engine
+            
+        if engine == 'CYCLES':
+            try:
+                self.time_limit = self.scene.cycles.time_limit
+            except AttributeError:
+                pass
+
+def update_override_persistent_data(self, context):
+    if self.override_persistent_data and self.scene:
+        # This is a general render setting but often associated with Cycles performance
+        try:
+            self.use_persistent_data = self.scene.render.use_persistent_data
+        except AttributeError:
+            pass
+
 def get_available_renderers(self, context):
     """Dynamically enumerate all available render engines using robust detection."""
     items = []
@@ -62,6 +165,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Engine", 
         default=False,
         description="Use a specific render engine for this job",
+        update=update_override_engine,
         options={'SKIP_SAVE'}
     )
     render_engine: bpy.props.EnumProperty(
@@ -75,6 +179,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override View Layer", 
         default=False,
         description="Render only a specific view layer for this job",
+        update=update_override_view_layer,
         options={'SKIP_SAVE'}
     )
     view_layer: bpy.props.StringProperty(
@@ -91,6 +196,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Camera",
         default=False,
         description="Use a specific camera for this job",
+        update=update_override_camera,
         options={'SKIP_SAVE'}
     )
     camera: bpy.props.PointerProperty(
@@ -106,6 +212,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Frame Step",
         default=False,
         description="Render every Nth frame for this job",
+        update=update_override_frame_step,
         options={'SKIP_SAVE'}
     )
     frame_step: bpy.props.IntProperty(
@@ -121,6 +228,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Transparency",
         default=False,
         description="Override transparent background setting",
+        update=update_override_transparent,
         options={'SKIP_SAVE'}
     )
     film_transparent: bpy.props.BoolProperty(
@@ -135,6 +243,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Compositor",
         default=False,
         description="Enable/disable compositor for this job",
+        update=update_override_compositor,
         options={'SKIP_SAVE'}
     )
     use_compositor: bpy.props.BoolProperty(
@@ -148,6 +257,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Frame Range", 
         default=False,
         description="Use a custom frame range for this job",
+        update=update_override_frame_range,
         options={'SKIP_SAVE'}
     )
     frame_start: bpy.props.IntProperty(
@@ -187,6 +297,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Resolution", 
         default=False,
         description="Use a custom resolution scale for this job",
+        update=update_override_resolution,
         options={'SKIP_SAVE'}
     )
     resolution_scale: bpy.props.IntProperty(
@@ -203,6 +314,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Samples", 
         default=False,
         description="Use a custom sample count for this job",
+        update=update_override_samples,
         options={'SKIP_SAVE'}
     )
     samples: bpy.props.IntProperty(
@@ -221,6 +333,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Denoising",
         default=False,
         description="Enable/disable denoising (Cycles only)",
+        update=update_override_denoising,
         options={'SKIP_SAVE'}
     )
     use_denoising: bpy.props.BoolProperty(
@@ -235,6 +348,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Device",
         default=False,
         description="Choose CPU or GPU rendering (Cycles only)",
+        update=update_override_device,
         options={'SKIP_SAVE'}
     )
     device: bpy.props.EnumProperty(
@@ -253,6 +367,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Time Limit",
         default=False,
         description="Set maximum render time per frame (Cycles only)",
+        update=update_override_time_limit,
         options={'SKIP_SAVE'}
     )
     time_limit: bpy.props.FloatProperty(
@@ -269,6 +384,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Persistent Data",
         default=False,
         description="Keep scene data in memory between frames (Cycles only)",
+        update=update_override_persistent_data,
         options={'SKIP_SAVE'}
     )
     use_persistent_data: bpy.props.BoolProperty(
@@ -360,6 +476,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Format", 
         default=False,
         description="Use a custom output format for this job",
+        update=update_override_format,
         options={'SKIP_SAVE'}
     )
     render_format: bpy.props.EnumProperty(
@@ -500,9 +617,9 @@ class RenderCueSettings(bpy.types.PropertyGroup):
         options={'SKIP_SAVE'}
     )
     
-    preview_image: bpy.props.PointerProperty(
-        type=bpy.types.Image,
-        name="Preview",
+    has_preview_image: bpy.props.BoolProperty(
+        name="Has Preview",
+        default=False,
         options={'SKIP_SAVE'}
     )
     

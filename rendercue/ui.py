@@ -271,7 +271,7 @@ class RenderCuePanelMixin:
             self.draw_queue_preview(box, settings, context)
         
         # Thumbnail
-        if settings.preview_image:
+        if settings.has_preview_image:
             # box.separator() # Removed extra padding
             thumb_header = box.row()
             thumb_header.prop(settings, "show_preview_thumbnail",
@@ -389,6 +389,21 @@ class RenderCuePanelMixin:
         row = layout.row(align=True)
         row.scale_y = 1.2
         row.operator("rendercue.populate_all", icon='SCENE_DATA', text="Add All Scenes")
+        
+        # Check for mixed engines
+        if settings.jobs:
+            engines = set()
+            for job in settings.jobs:
+                if job.scene:
+                    engine = job.render_engine if job.override_engine else job.scene.render.engine
+                    engines.add(engine)
+            
+            if len(engines) > 1:
+                # Show warning
+                warning_row = layout.row()
+                warning_row.alert = True
+                warning_row.label(text=f"Queue has {len(engines)} different render engines", icon='ERROR')
+
         row.menu("RENDERCUE_MT_presets_menu", icon='PRESET', text="Presets")
         
         layout.separator()

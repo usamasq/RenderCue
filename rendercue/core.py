@@ -161,6 +161,10 @@ class StateManager:
                 job.frame_start = job_data.get(JOB_FRAME_START, 1)
                 job.frame_end = job_data.get(JOB_FRAME_END, 250)
                 
+                # Enforce frame_end >= frame_start (bypassed by direct setattr)
+                if job.frame_end < job.frame_start:
+                    job.frame_end = job.frame_start
+                
                 job.override_output = job_data.get(JOB_OVERRIDE_OUTPUT, False)
                 job.output_path = job_data.get(JOB_OUTPUT_PATH, "//")
                 
@@ -302,6 +306,10 @@ class StateManager:
                 job.override_frame_range = job_data.get(JOB_OVERRIDE_FRAME_RANGE, False)
                 job.frame_start = job_data.get(JOB_FRAME_START, 1)
                 job.frame_end = job_data.get(JOB_FRAME_END, 250)
+
+                # Enforce frame_end >= frame_start
+                if job.frame_end < job.frame_start:
+                    job.frame_end = job.frame_start
                 job.override_output = job_data.get(JOB_OVERRIDE_OUTPUT, False)
                 job.output_path = job_data.get(JOB_OUTPUT_PATH, "//")
                 job.override_resolution = job_data.get(JOB_OVERRIDE_RESOLUTION, False)
@@ -482,7 +490,17 @@ class BackgroundWorker:
                     start = job[JOB_FRAME_START]
                     end = job[JOB_FRAME_END]
                 
-                job_frames = (end - start + 1)
+                # Determine step
+                step = scene.frame_step
+                if job.get(JOB_OVERRIDE_FRAME_STEP):
+                    step = job.get(JOB_FRAME_STEP, 1)
+                
+                # Calculate frame count
+                if start > end:
+                    job_frames = 0
+                else:
+                    job_frames = (end - start) // step + 1
+                
                 self.total_frames_to_render += job_frames
                 
                 # Update total frames for this job in tracking
@@ -656,7 +674,14 @@ class BackgroundWorker:
             
             # Apply Render Settings Overrides
             if job.get(JOB_OVERRIDE_ENGINE):
-                scene.render.engine = job[JOB_RENDER_ENGINE]
+                target_engine = job[JOB_RENDER_ENGINE]
+                try:
+                    current_engine = scene.render.engine
+                    scene.render.engine = target_engine
+                except (AttributeError, TypeError) as e:
+                    error_msg = f"Error: Cannot set render engine to '{target_engine}': {e}. Using scene default '{current_engine}'"
+                    print(error_msg)
+                    self.log_status(error_msg, error=str(e))
             
             # Camera Override (Universal)
             if job.get(JOB_OVERRIDE_CAMERA, False):
@@ -671,7 +696,10 @@ class BackgroundWorker:
                     print(f"Warning: Overridden camera '{camera_name}' not found.")
             
             # Frame Step (Universal)
-            frame_step = job.get(JOB_FRAME_STEP, 1) if job.get(JOB_OVERRIDE_FRAME_STEP, False) else 1
+            if job.get(JOB_OVERRIDE_FRAME_STEP, False):
+                frame_step = job.get(JOB_FRAME_STEP, 1)
+            else:
+                frame_step = scene.frame_step
             
             # Transparent Background (Universal)
             if job.get(JOB_OVERRIDE_TRANSPARENT, False):
@@ -687,7 +715,9 @@ class BackgroundWorker:
                     for vl in scene.view_layers:
                         vl.use = (vl.name == vl_name)
                 elif vl_name:
-                     print(f"Warning: View layer '{vl_name}' not found in scene '{scene.name}', skipping override")
+                     available_layers = [vl.name for vl in scene.view_layers]
+                     error_msg = f"Warning: View layer '{vl_name}' not found in scene '{scene.name}'. Available layers: {', '.join(available_layers)}"
+                     print(error_msg)
 
             if job[JOB_OVERRIDE_RESOLUTION]:
                 scene.render.resolution_percentage = job[JOB_RESOLUTION_SCALE]

@@ -176,22 +176,8 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         # Reset global progress counters
         context.window_manager.rendercue.finished_frames_count = 0
 
-        # Clear Preview Thumbnail
-        # This ensures we don't show the previous job's last frame
-        
-        # 1. Unlink from UI property first (Critical for releasing reference)
-        context.window_manager.rendercue.preview_image = None
-        
-        # 2. Remove the data block
-        image_name = "RenderCue Preview"
-        if image_name in bpy.data.images:
-            img = bpy.data.images[image_name]
-            try:
-                # Set fake user to avoid ref count errors
-                img.use_fake_user = True
-                bpy.data.images.remove(img)
-            except Exception as e:
-                print(f"Warning: Could not remove preview image: {e}")
+        # Reset Preview State
+        context.window_manager.rendercue.has_preview_image = False
         
         # Clear UI Collection
         try:
@@ -212,6 +198,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         if os.path.exists(pause_file):
             try:
                 os.remove(pause_file)
+                print("RenderCue: Cleaned up stale pause signal")
             except OSError:
                 pass
         
@@ -346,38 +333,6 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             return
             
         settings = context.window_manager.rendercue
-        image_name = "RenderCue Preview"
-        
-        img = bpy.data.images.get(image_name)
-        
-        if img:
-            # CRITICAL FIX: Reload existing image instead of deleting
-            # Deleting breaks the UI template_image binding
-            try:
-                img.filepath = filepath
-                img.reload()
-            except:
-                # Fallback: recreate if reload fails
-                # Set fake user before removing to avoid ref count error
-                img.use_fake_user = True
-                bpy.data.images.remove(img)
-                img = None
-        
-        if not img:
-            # First time or reload failed: create new image
-            try:
-                img = bpy.data.images.load(filepath, check_existing=False)
-                img.name = image_name
-            except RuntimeError:
-                return
-        
-        # Force update
-        img.update()
-        
-        # CRITICAL: Re-assign property to trigger UI update
-        # Even if it's the same object, this assignment notifies the UI system
-        settings.preview_image = img
-        
         # Update UI Preview Collection
         try:
             from . import ui
@@ -395,10 +350,20 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                 
                 # Update property so UI knows what to show
                 settings.preview_icon_key = new_key
+                settings.has_preview_image = True
                 
                 # Cleanup old key to prevent memory leaks
                 if old_key and old_key in pcoll and old_key != new_key:
                     del pcoll[old_key]
+                
+                # Periodic full cleanup every 100 frames to prevent memory accumulation
+                if settings.finished_frames_count % 100 == 0 and settings.finished_frames_count > 0:
+                    # Keep only the current preview
+                    current_key = settings.preview_icon_key
+                    keys_to_remove = [k for k in pcoll.keys() if k != current_key and k.startswith('thumbnail_')]
+                    for key in keys_to_remove:
+                        del pcoll[key]
+                    print(f"RenderCue: Cleaned up {len(keys_to_remove)} old preview thumbnails")
                     
         except Exception as e:
             print(f"Preview Collection Error: {e}")

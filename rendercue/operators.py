@@ -3,6 +3,7 @@ import os
 import json
 from .core import StateManager
 from .constants import PAUSE_SIGNAL_FILENAME
+from .properties import get_available_renderers
 
 class RENDERCUE_OT_add_job(bpy.types.Operator):
     """Add the current active scene to the render queue."""
@@ -85,13 +86,24 @@ class RENDERCUE_OT_populate_all(bpy.types.Operator):
         settings = context.window_manager.rendercue
         
         existing_scenes = {job.scene for job in settings.jobs if job.scene}
+        print(f"RenderCue: Existing scenes in queue: {[s.name for s in existing_scenes]}")
         
+        count = 0
         for scene in bpy.data.scenes:
             # Exclude existing scenes and scenes without cameras
             if scene not in existing_scenes and scene.camera:
+                print(f"RenderCue: Adding scene {scene.name}")
                 job = settings.jobs.add()
                 job.scene = scene
+                count += 1
+            else:
+                print(f"RenderCue: Skipping scene {scene.name} (Exists: {scene in existing_scenes}, Has Camera: {bool(scene.camera)})")
                 
+        if count > 0:
+            self.report({'INFO'}, f"Added {count} scenes to queue")
+        else:
+            self.report({'WARNING'}, "No new scenes with cameras found")
+            
         return {'FINISHED'}
 
 class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
@@ -99,10 +111,31 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
     bl_idname = "rendercue.apply_override_to_all"
     bl_label = "Apply to All"
     bl_description = "Copy this setting to all jobs in the queue"
-    bl_options = {'REGISTER', 'UNDO'}
+    bl_options = {'REGISTER', 'UNDO', 'INTERNAL'}
     
     data_path_bool: bpy.props.StringProperty()
     data_path_val: bpy.props.StringProperty()
+
+    def invoke(self, context, event):
+        """Show confirmation dialog before applying to all jobs."""
+        settings = context.window_manager.rendercue
+        
+        if not settings.jobs or len(settings.jobs) <= 1:
+            # If only 0-1 jobs, no need for confirmation
+            return self.execute(context)
+        
+        # Build confirmation message
+        job_count = len(settings.jobs)
+        override_name = self.data_path_bool.replace('override_', '').replace('_', ' ').title()
+        
+        return context.window_manager.invoke_confirm(
+            self,
+            event,
+            title="Apply to All Jobs",
+            message=f"Apply '{override_name}' to all {job_count} jobs in queue?",
+            confirm_text="Apply",
+            icon='QUESTION'
+        )
 
     @classmethod
     def poll(cls, context):
@@ -230,6 +263,32 @@ class RENDERCUE_OT_validate_queue(bpy.types.Operator):
                          errors.append(f"Job {i+1}: GPU override selected but no GPU devices found")
                 except:
                     pass # Ignore if we can't check preferences
+
+            # Validate Render Engine Availability
+            if job.override_engine:
+                available_engines = [e[0] for e in get_available_renderers(None, context)]
+                if job.render_engine not in available_engines:
+                    errors.append(f"Job {i+1}: Render engine '{job.render_engine}' is not available (addon disabled or removed)")
+
+            # Validate Camera Linkage
+            if job.override_camera and job.camera and job.scene:
+                if job.camera.name not in job.scene.objects:
+                    errors.append(f"Job {i+1}: Camera '{job.camera.name}' is not linked to scene '{job.scene.name}'")
+
+            # Validate View Layer
+            if job.override_view_layer and job.view_layer and job.scene:
+                if job.view_layer not in [vl.name for vl in job.scene.view_layers]:
+                    errors.append(f"Job {i+1}: View layer '{job.view_layer}' not found in scene '{job.scene.name}'")
+
+            # Warn about extreme resolutions
+            if job.override_resolution:
+                res_x = job.scene.render.resolution_x if job.scene else 1920
+                res_y = job.scene.render.resolution_y if job.scene else 1080
+                final_x = int(res_x * job.resolution_scale / 100)
+                final_y = int(res_y * job.resolution_scale / 100)
+                
+                if final_x > 8192 or final_y > 8192:
+                    errors.append(f"Job {i+1}: Resolution {final_x}x{final_y} exceeds 8K (may cause GPU memory errors)")
                 
         if errors:
             self.report({'ERROR'}, f"Validation Failed: {len(errors)} errors found")
@@ -402,13 +461,8 @@ class RENDERCUE_OT_stop_render(bpy.types.Operator):
         # Reset current render pointer
         settings.current_job_index = 0
         
-        # Clear Preview Thumbnail
-        image_name = "RenderCue Preview"
-        if image_name in bpy.data.images:
-            img = bpy.data.images[image_name]
-            bpy.data.images.remove(img)
-            
-        settings.preview_image = None
+        # Clear Preview State
+        settings.has_preview_image = False
         
         # Clear UI Collection
         try:
