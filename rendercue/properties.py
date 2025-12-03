@@ -692,6 +692,13 @@ class RenderCueSettings(bpy.types.PropertyGroup):
     ui_show_dimensions: bpy.props.BoolProperty(name="Show Dimensions", default=False, options={'SKIP_SAVE'})
     ui_show_format: bpy.props.BoolProperty(name="Show Format", default=False, options={'SKIP_SAVE'})
     ui_show_render: bpy.props.BoolProperty(name="Show Render", default=False, options={'SKIP_SAVE'})
+    
+    ui_show_override_summary: bpy.props.BoolProperty(
+        name="Show Override Summary",
+        description="Display a summary of active overrides for the selected job",
+        default=False,
+        options={'SKIP_SAVE'}
+    )
 
     show_preview_thumbnail: bpy.props.BoolProperty(
         name="Show Preview Thumbnail",

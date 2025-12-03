@@ -7,6 +7,7 @@ from .constants import (
     UI_QUEUE_PREVIEW_BEFORE, UI_QUEUE_PREVIEW_AFTER, UI_MAX_JOB_NAME_LENGTH,
     UI_PREVIEW_COLLECTION_KEY, UI_STATUS_ICONS
 )
+from . import ui_helpers
 
 preview_collections = {}
 
@@ -116,6 +117,76 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
             row.label(text=f"Samples: {samples}", icon='MODIFIER')
         else:
             row.label(text=f"Samples: {samples}")
+
+def draw_queue_health_panel(layout, context):
+    """Display queue validation status (HIG: Feedback)."""
+    from . import ui_helpers
+    
+    settings = context.window_manager.rendercue
+    if not settings.jobs:
+        return  # No queue, no health to show
+    
+    validation = ui_helpers.get_queue_validation_summary(context)
+    
+    # Error Box (HIG: Color Coding - Red)
+    if validation['errors']:
+        error_box = layout.box()
+        error_box.alert = True
+        
+        # Header
+        header = error_box.row()
+        header.scale_y = 0.9
+        header.label(
+            text=f"{len(validation['errors'])} Critical Issue(s)",
+            icon='CANCEL'
+        )
+        
+        # Show first 2 errors (HIG: Clarity)
+        for error in validation['errors'][:2]:
+            row = error_box.row()
+            row.scale_y = 0.7
+            row.label(text=f"• {error}")
+        
+        # "More" indicator
+        if len(validation['errors']) > 2:
+            row = error_box.row()
+            row.scale_y = 0.7
+            row.label(text=f"... +{len(validation['errors']) - 2} more")
+        
+        # Action button
+        row = error_box.row()
+        row.operator(
+            "rendercue.validate_queue",
+            icon='CHECKMARK',
+            text="View All Issues"
+        )
+        return  # Don't show warnings if errors exist
+    
+    # Warning Box (HIG: Color Coding - Orange)
+    if validation['warnings']:
+        warn_box = layout.box()
+        
+        header = warn_box.row()
+        header.scale_y = 0.9
+        header.label(
+            text=f"{len(validation['warnings'])} Warning(s)",
+            icon='INFO'
+        )
+        # Orange tint for warnings
+        sub = header.row()
+        sub.alert = True
+        sub.label(text="")
+        
+        # Show first 2 warnings
+        for warning in validation['warnings'][:2]:
+            row = warn_box.row()
+            row.scale_y = 0.7
+            row.label(text=f"⚠ {warning}")
+        
+        if len(validation['warnings']) > 2:
+            row = warn_box.row()
+            row.scale_y = 0.7
+            row.label(text=f"... +{len(validation['warnings']) - 2} more")
 
 class RenderCuePanelMixin:
     """Mixin class for shared panel drawing logic."""
@@ -385,24 +456,43 @@ class RenderCuePanelMixin:
         col.operator("rendercue.move_job", icon='TRIA_UP', text="").direction = 'UP'
         col.operator("rendercue.move_job", icon='TRIA_DOWN', text="").direction = 'DOWN'
         
+        layout.separator()
+        draw_queue_health_panel(layout, context)
+        layout.separator()
+        
         # Queue Tools
+        
+        # Scene Availability Info
+        stats = ui_helpers.get_scene_statistics(context)
+        if stats['total'] > 0:
+            info_row = layout.row()
+            info_row.scale_y = 0.75
+            
+            if stats['available'] > 0:
+                info_row.label(text=f"{stats['available']} scene(s) can be added", icon='ADD')
+            elif stats['with_cameras'] == 0:
+                info_row.alert = True
+                info_row.label(text="No scenes have cameras assigned", icon='ERROR')
+            else:
+                info_row.enabled = False
+                info_row.label(text="All scenes with cameras in queue", icon='CHECKMARK')
+
         row = layout.row(align=True)
         row.scale_y = 1.2
-        row.operator("rendercue.populate_all", icon='SCENE_DATA', text="Add All Scenes")
+        
+        btn_text = "Add All Scenes"
+        if stats['available'] > 0:
+            btn_text = f"Add All Scenes ({stats['available']})"
+            
+        row.operator("rendercue.populate_all", icon='SCENE_DATA', text=btn_text)
         
         # Check for mixed engines
-        if settings.jobs:
-            engines = set()
-            for job in settings.jobs:
-                if job.scene:
-                    engine = job.render_engine if job.override_engine else job.scene.render.engine
-                    engines.add(engine)
-            
-            if len(engines) > 1:
-                # Show warning
-                warning_row = layout.row()
-                warning_row.alert = True
-                warning_row.label(text=f"Queue has {len(engines)} different render engines", icon='ERROR')
+        warning = ui_helpers.get_mixed_engine_warning(settings)
+        if warning:
+            warn_row = layout.row()
+            warn_row.alert = True
+            warn_row.scale_y = 0.8
+            warn_row.label(text=warning, icon='ERROR')
 
         row.menu("RENDERCUE_MT_presets_menu", icon='PRESET', text="Presets")
         
@@ -449,11 +539,39 @@ class RenderCuePanelMixin:
             box = layout.box()
             
             # Header
+            override_info = ui_helpers.get_override_summary(job)
             row = box.row()
-            row.label(text=f"Overrides: {job.scene.name if job.scene else 'None'}", icon='MODIFIER')
             
+            header_text = f"Overrides: {job.scene.name if job.scene else 'None'}"
+            if override_info['count'] > 0:
+                header_text += f" ({override_info['count']} active)"
+                
+            row.label(text=header_text, icon='MODIFIER')
+
             # Create parent column for all collapsible sections
             parent_col = box.column(align=True)
+            
+            # Collapsible Summary
+            if override_info['count'] > 0:
+                summary_box = parent_col.box()
+                summary_header = summary_box.row()
+                summary_header.prop(
+                    settings,
+                    "ui_show_override_summary",
+                    icon='TRIA_DOWN' if settings.ui_show_override_summary else 'TRIA_RIGHT',
+                    text=f"Active Overrides ({override_info['count']})",
+                    emboss=False
+                )
+                
+                if settings.ui_show_override_summary:
+                    summary_col = summary_box.column(align=True)
+                    summary_col.scale_y = 0.75
+                    
+                    for name, value in override_info['overrides']:
+                        row = summary_col.row()
+                        row.label(text=f"• {name}: ", icon='DOT')
+                        row.label(text=value)
+            
             parent_col.separator()
             
             # Helper for collapsible group styling

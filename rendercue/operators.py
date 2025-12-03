@@ -86,18 +86,14 @@ class RENDERCUE_OT_populate_all(bpy.types.Operator):
         settings = context.window_manager.rendercue
         
         existing_scenes = {job.scene for job in settings.jobs if job.scene}
-        print(f"RenderCue: Existing scenes in queue: {[s.name for s in existing_scenes]}")
         
         count = 0
         for scene in bpy.data.scenes:
             # Exclude existing scenes and scenes without cameras
             if scene not in existing_scenes and scene.camera:
-                print(f"RenderCue: Adding scene {scene.name}")
                 job = settings.jobs.add()
                 job.scene = scene
                 count += 1
-            else:
-                print(f"RenderCue: Skipping scene {scene.name} (Exists: {scene in existing_scenes}, Has Camera: {bool(scene.camera)})")
                 
         if count > 0:
             self.report({'INFO'}, f"Added {count} scenes to queue")
