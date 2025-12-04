@@ -38,7 +38,7 @@ ln -s /path/to/RenderCue/rendercue ~/.config/blender/4.2/scripts/addons/rendercu
 - **`ui.py`**: Manages the UI panels and drawing logic.
 - **`properties.py`**: Defines `PropertyGroups` for jobs and settings.
 - **`render.py`**: Manages the render execution flow and status monitoring.
-- **`version_compat.py`**: Handles API differences between Blender 3.0 - 5.0+.
+- **`version_compat.py`**: Handles API differences between Blender 4.2 - 5.0+.
 - **`notifications.py`**: Handles desktop toasts and webhooks.
 
 ## 📏 Coding Standards

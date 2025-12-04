@@ -10,7 +10,7 @@ license = ["SPDX:GPL-3.0-or-later"]
 website = "https://github.com/usamasq/RenderCue"
 tags = ["Render", "Pipeline"]
 
-blender_version_min = "3.0.0"
+blender_version_min = "4.2.0"
 
 # Permissions
 [permissions]

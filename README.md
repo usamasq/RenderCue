@@ -4,7 +4,7 @@
 
 **Sequence. Queue. Render.**
 
-![Blender Version](https://img.shields.io/badge/Blender-3.0%20--%205.0%2B-orange?logo=blender)
+![Blender Version](https://img.shields.io/badge/Blender-4.2%20--%205.0%2B-orange?logo=blender)
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
 [![Version](https://img.shields.io/badge/Version-1.1.0-green)](CHANGELOG.md)
 
@@ -36,7 +36,7 @@ RenderCue is a powerful Blender add-on that bridges the gap between Scene Manage
 3. Click **Install...**, select the zip file, and enable **Render: RenderCue**.
 
 > [!NOTE]
-> RenderCue is compatible with Blender 3.0 through 5.0+.
+> RenderCue requires Blender 4.2 or later and is fully compatible with Blender 5.0+.
 
 ## 🎮 Quick Start Guide
 

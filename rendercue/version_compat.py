@@ -1,10 +1,9 @@
 """
 RenderCue Version Compatibility Module
 
-This module abstracts API differences between Blender versions (3.0 - 5.0+).
+This module abstracts API differences between Blender versions (4.2 - 5.0+).
 It provides helper functions for:
 - Checking Blender versions
-- Handling render engine differences (Eevee vs Eevee Next)
 - Managing icon name changes
 - Setting image formats safely
 """
@@ -21,15 +20,13 @@ def is_version_at_least(major, minor, patch=0):
     return bpy.app.version >= (major, minor, patch)
 
 def is_eevee_engine(engine_id):
-    """Checks if the given engine ID corresponds to Eevee (legacy, Next, or unified)."""
-    return engine_id in {'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'}
+    """Checks if the given engine ID corresponds to Eevee."""
+    return engine_id == 'BLENDER_EEVEE'
 
 def get_engine_display_name(engine_id):
     """Returns a user-friendly display name for the render engine."""
     if engine_id == 'BLENDER_EEVEE':
         return "Eevee"
-    elif engine_id == 'BLENDER_EEVEE_NEXT':
-        return "Eevee Next"
     elif engine_id == 'CYCLES':
         return "Cycles"
     elif engine_id == 'BLENDER_WORKBENCH':
@@ -38,89 +35,30 @@ def get_engine_display_name(engine_id):
 
 def get_available_engines():
     """
-    Returns a list of available render engines compatible with the current Blender version.
+    Returns a list of available render engines for Blender 4.2+.
     Returns list of tuples: (identifier, name, description)
     """
-    items = []
-    
-    # Define standard engines to check
-    # (Identifier, Label, Description)
-    engines_to_check = [
+    # Standard engines available in Blender 4.2+
+    return [
         ('CYCLES', "Cycles", "Path tracing renderer"),
         ('BLENDER_EEVEE', "Eevee", "Real-time renderer"),
         ('BLENDER_WORKBENCH', "Workbench", "Viewport renderer"),
     ]
-    
-    # Only check for Eevee Next if we are NOT in 4.2+ (where it was merged)
-    # Actually, checking hasattr is safer regardless of version number, 
-    # but we know it was removed in 4.2.
-    if not is_version_at_least(4, 2, 0):
-        engines_to_check.append(('BLENDER_EEVEE_NEXT', "Eevee Next", "Experimental real-time renderer"))
-
-    for eng_id, label, desc in engines_to_check:
-        # Check if the engine is actually available in this Blender instance
-        # Eevee Next has a specific class name in 4.0/4.1
-        if eng_id == 'BLENDER_EEVEE_NEXT':
-            if hasattr(bpy.types, 'EEVEE_NEXT_RenderEngine'):
-                items.append((eng_id, label, desc))
-        else:
-            # For standard engines, they are usually available. 
-            # We can check bpy.types for specific classes if needed, 
-            # but for built-ins, assuming they exist if not Eevee Next is usually safe.
-            # However, let's be robust.
-            
-            # Note: Built-in engines like BLENDER_EEVEE might not always have a python exposed class 
-            # named exactly {ID}_RenderEngine in all versions, but usually they do or are registered internally.
-            # A simple way is to check if it's in the list of available render engines.
-            
-            # But get_available_renderers in properties.py used hasattr checks.
-            # Let's trust that logic but simplify.
-            
-            # Actually, let's just return the list. Blender filters invalid engines in UI usually.
-            # But for our EnumProperty, we need valid items.
-            items.append((eng_id, label, desc))
-            
-    return items
 
 def get_eevee_samples(scene):
-    """Gets Eevee samples count handling version differences."""
-    # Blender 4.x / 5.x (and some late 3.x experimental): taa_render_samples
+    """Gets Eevee samples count (Blender 4.2+ uses taa_render_samples)."""
     try:
-        if hasattr(scene.eevee, 'taa_render_samples'):
-            return scene.eevee.taa_render_samples
+        return scene.eevee.taa_render_samples
     except AttributeError:
-        pass
-        
-    # Blender 3.x: samples
-    try:
-        if hasattr(scene.eevee, 'samples'):
-            return scene.eevee.samples
-    except AttributeError:
-        pass
-        
-    return 64 # Default fallback
+        return 64  # Default fallback
 
 def set_eevee_samples(scene, value):
-    """Sets Eevee samples count handling version differences."""
-    success = False
-    # Try newer API first
+    """Sets Eevee samples count (Blender 4.2+ uses taa_render_samples)."""
     try:
-        if hasattr(scene.eevee, 'taa_render_samples'):
-            scene.eevee.taa_render_samples = value
-            success = True
+        scene.eevee.taa_render_samples = value
+        return True
     except AttributeError:
-        pass
-        
-    if not success:
-        # Try older API
-        try:
-            if hasattr(scene.eevee, 'samples'):
-                scene.eevee.samples = value
-                success = True
-        except AttributeError:
-            pass
-            
-    return success
+        return False
 
 def log_version_info():
     """Logs the current Blender version for debugging."""

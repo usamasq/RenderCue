@@ -7,7 +7,7 @@ This document provides a high-level overview of the RenderCue codebase to help n
 The addon is organized into the following modules within the `rendercue/` package:
 
 | Module              | Responsibility                                                                                                                       |
-| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ |
+| ------------------- | ------------------------------------------------------------------------------------------------------------------------------------ | ----------------- |
 | `__init__.py`       | Entry point. Handles registration/unregistration of all other modules.                                                               |
 | `core.py`           | **The Brain**. Contains the `BackgroundWorker` class (runs renders), `StateManager` (saves/loads queue), and logging infrastructure. |
 | `properties.py`     | **Data Models**. Defines Blender `PropertyGroup` classes (`RenderCueJob`, `RenderCueSettings`) that store all addon data.            |
@@ -16,9 +16,11 @@ The addon is organized into the following modules within the `rendercue/` packag
 | `ui_helpers.py`     | **UI Utilities**. Reusable functions for drawing common UI elements (icons, headers).                                                |
 | `render.py`         | **Execution**. Manages the modal operator that monitors the background process and updates the UI.                                   |
 | `notifications.py`  | **Feedback**. Handles desktop notifications (toast messages) and webhooks.                                                           |
-| `version_compat.py` | **Compatibility**. Abstraction layer for handling API differences between Blender 3.0, 4.0, and 5.0+.                                |
-| `constants.py`      | **Configuration**. Centralized file for constants, filenames, and default values.                                                    |
-| `preferences.py`    | **Settings**. Defines the addon preferences panel.                                                                                   |
+| `version_compat.py` | **Compatibility**. Abstraction layer for handling API differences between Blender 4.2 and 5.0+.                                      | \antml:parameter> |
+
+<parameter name="StartLine">19
+| `constants.py` | **Configuration**. Centralized file for constants, filenames, and default values. |
+| `preferences.py` | **Settings**. Defines the addon preferences panel. |
 
 ## 🧩 Key Concepts
 
@@ -41,7 +43,7 @@ To ensure the background process knows what to render, the current queue state i
 
 ### 4. Version Compatibility
 
-We support Blender 3.0 through 5.0+.
+We support Blender 4.2 through 5.0+.
 
 - **Do not** use version-specific API calls directly in logic code.
 - **Do** use `version_compat.py` helpers (e.g., `get_available_engines()`, `get_icon()`).
