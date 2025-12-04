@@ -6,7 +6,7 @@
 
 ![Blender Version](https://img.shields.io/badge/Blender-4.2%20--%205.0%2B-orange?logo=blender)
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.1.0-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.1.1-green)](CHANGELOG.md)
 
 RenderCue is a powerful Blender add-on that bridges the gap between Scene Management and Batch Rendering. It provides a streamlined visual interface to queue multiple scenes, override their output settings per-job, and execute renders in the background while keeping your UI responsive.
 
