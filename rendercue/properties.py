@@ -649,6 +649,7 @@ class RenderCueSettings(bpy.types.PropertyGroup):
     summary_total_frames: bpy.props.IntProperty(name="Total Frames Rendered", default=0, options={'SKIP_SAVE'})
     summary_render_time: bpy.props.StringProperty(name="Total Render Time", default="", options={'SKIP_SAVE'})
     summary_blend_file: bpy.props.StringProperty(name="Blend File", default="", options={'SKIP_SAVE'})
+    summary_output_path: bpy.props.StringProperty(name="Summary Output Path", default="", options={'SKIP_SAVE'})
 
     # Queue Preview UI State
     show_queue_preview: bpy.props.BoolProperty(

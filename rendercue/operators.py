@@ -935,7 +935,15 @@ class RENDERCUE_OT_show_summary_popup(bpy.types.Operator):
         row.label(text="Open output folder?", icon=version_compat.get_icon('FILE_FOLDER'))
         
     def execute(self, context):
-        bpy.ops.rendercue.open_output_folder()
+        settings = context.window_manager.rendercue
+        output_path = settings.summary_output_path
+        
+        if output_path and os.path.exists(output_path):
+            bpy.ops.wm.path_open(filepath=output_path)
+        else:
+            # Fallback to the open_output_folder operator if path is invalid
+            bpy.ops.rendercue.open_output_folder()
+        
         return {'FINISHED'}
 
 class RENDERCUE_OT_clear_status(bpy.types.Operator):

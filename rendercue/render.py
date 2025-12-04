@@ -301,6 +301,18 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             settings.summary_render_time = time_str
             settings.summary_blend_file = os.path.basename(bpy.data.filepath) or "Untitled.blend"
             
+            # Determine the actual output path used for this render
+            if settings.output_location == 'CUSTOM':
+                actual_output_path = bpy.path.abspath(settings.global_output_path)
+            else:
+                # BLEND mode: //BlendName_RenderCue
+                blend_name = os.path.splitext(os.path.basename(bpy.data.filepath))[0]
+                if not blend_name:
+                    blend_name = "Untitled"
+                actual_output_path = bpy.path.abspath(f"//{blend_name}_RenderCue")
+
+            settings.summary_output_path = actual_output_path
+            
             # Store completion timestamp for Status Bar
             settings.completion_statusbar_timestamp = time.time()
             

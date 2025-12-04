@@ -1,4 +1,8 @@
-![RenderCue Banner](RenderCue.jpg)
+<p align="center">
+  <img src="assets/Logo Icon.jpg" width="128" />
+</p>
+
+![RenderCue Banner](assets/RenderCue.jpg)
 
 # RenderCue
 
@@ -26,8 +30,9 @@ RenderCue is a powerful Blender add-on that bridges the gap between Scene Manage
 - **Presets**: Save and load queue configurations, or use quick "Draft"/"Production" presets.
 - **Notifications**: Get notified via system toasts or webhooks when your batch render completes.
 
-![Features 1](Features1.jpg)
-![Features 2](Features2.jpg)
+![Features 1](assets/Features1.jpg)
+![Features 2](assets/Features2.jpg)
+![Features 3](assets/Features3.jpg)
 
 ## 📦 Installation
 
