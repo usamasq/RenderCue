@@ -46,12 +46,16 @@ Built for modern pipelines, RenderCue fully supports **Blender 4.2 LTS through 5
 - Click **Add Scene** or **Add All Scenes** to populate your queue.
 - **Queue Health**: Check the panel below the list for any warnings or errors (marked in red/orange).
 
+![Building the Queue](assets/Features1.jpg)
+
 ### 2. Configuring Jobs
 
 - **Global Output**: Use the "Global Output" section to set a base folder for all jobs.
 - **Overrides**: Select a job and expand the **Overrides** section.
   - Enable specific overrides like **Resolution**, **Frame Range**, or **Camera**.
   - **Tip**: Use the "Apply to All" button (⧉) next to any setting to instantly propagate it to every job in the queue.
+
+![Configuring Jobs](assets/Features2.jpg)
 
 ### 3. Rendering
 
@@ -62,6 +66,8 @@ Built for modern pipelines, RenderCue fully supports **Blender 4.2 LTS through 5
   - **Live Preview**: A thumbnail of the last rendered frame.
   - **Queue Status**: A mini-view of upcoming jobs.
 - You can continue working in Blender while your renders churn in the background!
+
+![Rendering](assets/Features3.jpg)
 
 ## Support
 
