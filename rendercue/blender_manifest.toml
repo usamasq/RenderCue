@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "rendercue"
-version = "1.1.0"
+version = "1.1.1"
 name = "RenderCue"
 tagline = "Sequence. Queue. Render"
 maintainer = "Usama Bin Shahid"
