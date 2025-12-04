@@ -1,7 +1,3 @@
-<p align="center">
-  <img src="assets/Logo Icon.jpg" width="128" />
-</p>
-
 ![RenderCue Banner](assets/RenderCue.jpg)
 
 # RenderCue
