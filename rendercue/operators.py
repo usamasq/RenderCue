@@ -592,15 +592,54 @@ class RENDERCUE_OT_browse_path(bpy.types.Operator):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
-class RENDERCUE_OT_dismiss_banner(bpy.types.Operator):
-    """Dismiss the render summary banner."""
-    bl_idname = "rendercue.dismiss_banner"
-    bl_label = "Dismiss Banner"
-    bl_description = "Dismiss the render summary banner"
+class RENDERCUE_OT_show_summary_popup(bpy.types.Operator):
+    """Show a modal popup with render summary."""
+    bl_idname = "rendercue.show_summary_popup"
+    bl_label = "Render Complete"
+    bl_description = "Show render summary"
+    bl_options = {'INTERNAL'}
     
+    def invoke(self, context, event):
+        return context.window_manager.invoke_props_dialog(self, width=400)
+        
+    def draw(self, context):
+        layout = self.layout
+        settings = context.window_manager.rendercue
+        
+        # Title
+        row = layout.row()
+        row.label(text="Render Job Completed", icon='CHECKMARK')
+        
+        layout.separator()
+        
+        # Stats
+        box = layout.box()
+        col = box.column(align=True)
+        
+        row = col.row()
+        row.alignment = 'LEFT'
+        row.label(text=f"Total Time: {settings.summary_render_time}")
+        
+        row = col.row()
+        row.alignment = 'LEFT'
+        row.label(text=f"Frames: {settings.summary_total_frames}")
+        
+        row = col.row()
+        row.alignment = 'LEFT'
+        row.label(text=f"Jobs: {settings.summary_successful_jobs} / {settings.summary_total_jobs}")
+        
+        if settings.summary_failed_jobs > 0:
+            row = col.row()
+            row.alert = True
+            row.label(text=f"Failed: {settings.summary_failed_jobs}", icon='ERROR')
+            
+        layout.separator()
+        
+        # Actions
+        row = layout.row()
+        row.operator("rendercue.open_output_folder", icon='FILE_FOLDER', text="Open Output Folder")
+        
     def execute(self, context):
-        """Execute the operator."""
-        context.window_manager.rendercue.show_summary_banner = False
         return {'FINISHED'}
 
 class RENDERCUE_OT_clear_status(bpy.types.Operator):
@@ -644,7 +683,7 @@ classes = (
     RENDERCUE_OT_resume_render,
     RENDERCUE_OT_browse_path,
     RENDERCUE_OT_load_data,
-    RENDERCUE_OT_dismiss_banner,
+    RENDERCUE_OT_show_summary_popup,
     RENDERCUE_OT_clear_status,
 )
 

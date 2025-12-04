@@ -30,6 +30,35 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         default=False,
         update=update_auto_save
     )
+
+    # Completion Feedback Preferences
+    show_completion_popup: bpy.props.BoolProperty(
+        name="Show Completion Popup",
+        description="Show modal popup when render completes",
+        default=True
+    )
+    
+    popup_auto_dismiss_seconds: bpy.props.IntProperty(
+        name="Popup Auto-Dismiss Time",
+        description="Auto-dismiss popup after this many seconds (0 = manual only)",
+        default=10,
+        min=0,
+        max=60
+    )
+    
+    show_completion_statusbar: bpy.props.BoolProperty(
+        name="Show Completion in Status Bar",
+        description="Show render completion message in status bar",
+        default=True
+    )
+    
+    statusbar_display_seconds: bpy.props.IntProperty(
+        name="Status Bar Display Time",
+        description="Show status bar message for this many seconds",
+        default=30,
+        min=5,
+        max=120
+    )
     
     def draw(self, context):
         layout = self.layout
@@ -57,6 +86,21 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         layout.label(text="Notifications:")
         layout.prop(self, "show_notifications")
         layout.prop(self, "webhook_url")
+        
+        layout.separator()
+        layout.label(text="Completion Feedback:")
+        
+        # Popup Settings
+        row = layout.row()
+        row.prop(self, "show_completion_popup")
+        if self.show_completion_popup:
+            row.prop(self, "popup_auto_dismiss_seconds", text="Dismiss (s)")
+            
+        # Status Bar Settings
+        row = layout.row()
+        row.prop(self, "show_completion_statusbar")
+        if self.show_completion_statusbar:
+            row.prop(self, "statusbar_display_seconds", text="Duration (s)")
         
         layout.separator()
         layout.separator()

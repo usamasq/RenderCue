@@ -14,105 +14,137 @@ def update_frame_range(self, context):
 # ==================== UPDATE CALLBACKS FOR DYNAMIC DEFAULTS ====================
 
 def update_override_engine(self, context):
-    if self.override_engine and self.scene:
-        self.render_engine = self.scene.render.engine
+    if self.override_engine:
+        context.window_manager.rendercue.ui_show_render = True
+        if self.scene:
+            self.render_engine = self.scene.render.engine
 
 def update_override_view_layer(self, context):
-    if self.override_view_layer and self.scene and self.scene.view_layers:
-        # Default to the first one as we can't know the "active" one easily from here
-        self.view_layer = self.scene.view_layers[0].name
+    if self.override_view_layer:
+        context.window_manager.rendercue.ui_show_render = True
+        if self.scene and self.scene.view_layers:
+            # Default to the first one as we can't know the "active" one easily from here
+            self.view_layer = self.scene.view_layers[0].name
 
 def update_override_camera(self, context):
-    if self.override_camera and self.scene and self.scene.camera:
-        self.camera = self.scene.camera
+    if self.override_camera:
+        context.window_manager.rendercue.ui_show_output = True
+        if self.scene and self.scene.camera:
+            self.camera = self.scene.camera
 
 def update_override_frame_step(self, context):
-    if self.override_frame_step and self.scene:
-        self.frame_step = self.scene.frame_step
+    if self.override_frame_step:
+        context.window_manager.rendercue.ui_show_dimensions = True
+        if self.scene:
+            self.frame_step = self.scene.frame_step
 
 def update_override_transparent(self, context):
-    if self.override_transparent and self.scene:
-        self.film_transparent = self.scene.render.film_transparent
+    if self.override_transparent:
+        context.window_manager.rendercue.ui_show_output = True
+        if self.scene:
+            self.film_transparent = self.scene.render.film_transparent
 
 def update_override_compositor(self, context):
-    if self.override_compositor and self.scene:
-        self.use_compositor = self.scene.render.use_compositing
+    if self.override_compositor:
+        context.window_manager.rendercue.ui_show_output = True
+        if self.scene:
+            self.use_compositor = self.scene.render.use_compositing
 
 def update_override_frame_range(self, context):
-    if self.override_frame_range and self.scene:
-        self.frame_start = self.scene.frame_start
-        self.frame_end = self.scene.frame_end
+    if self.override_frame_range:
+        context.window_manager.rendercue.ui_show_dimensions = True
+        if self.scene:
+            self.frame_start = self.scene.frame_start
+            self.frame_end = self.scene.frame_end
 
 def update_override_resolution(self, context):
-    if self.override_resolution and self.scene:
-        self.resolution_scale = self.scene.render.resolution_percentage
+    if self.override_resolution:
+        context.window_manager.rendercue.ui_show_dimensions = True
+        if self.scene:
+            self.resolution_scale = self.scene.render.resolution_percentage
+
+def update_override_output(self, context):
+    if self.override_output:
+        context.window_manager.rendercue.ui_show_output = True
 
 def update_override_samples(self, context):
-    if self.override_samples and self.scene:
-        # Determine effective engine
-        engine = self.scene.render.engine
-        if self.override_engine:
-            engine = self.render_engine
-            
-        if engine == 'CYCLES':
-            self.samples = self.scene.cycles.samples
-        elif engine in ('BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'):
-            try:
-                self.samples = self.scene.eevee.taa_render_samples
-            except AttributeError:
+    if self.override_samples:
+        context.window_manager.rendercue.ui_show_render = True
+        if self.scene:
+            # Determine effective engine
+            engine = self.scene.render.engine
+            if self.override_engine:
+                engine = self.render_engine
+                
+            if engine == 'CYCLES':
+                self.samples = self.scene.cycles.samples
+            elif engine in ('BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'):
                 try:
-                    self.samples = self.scene.eevee.samples
+                    self.samples = self.scene.eevee.taa_render_samples
+                except AttributeError:
+                    try:
+                        self.samples = self.scene.eevee.samples
+                    except AttributeError:
+                        pass
+
+def update_override_format(self, context):
+    if self.override_format:
+        context.window_manager.rendercue.ui_show_format = True
+        if self.scene:
+            self.render_format = self.scene.render.image_settings.file_format
+
+def update_override_denoising(self, context):
+    if self.override_denoising:
+        context.window_manager.rendercue.ui_show_render = True
+        if self.scene:
+            # Only relevant for Cycles usually, but check effective engine
+            engine = self.scene.render.engine
+            if self.override_engine:
+                engine = self.render_engine
+                
+            if engine == 'CYCLES':
+                try:
+                    self.use_denoising = self.scene.cycles.use_denoising
                 except AttributeError:
                     pass
 
-def update_override_format(self, context):
-    if self.override_format and self.scene:
-        self.render_format = self.scene.render.image_settings.file_format
-
-def update_override_denoising(self, context):
-    if self.override_denoising and self.scene:
-        # Only relevant for Cycles usually, but check effective engine
-        engine = self.scene.render.engine
-        if self.override_engine:
-            engine = self.render_engine
-            
-        if engine == 'CYCLES':
-            try:
-                self.use_denoising = self.scene.cycles.use_denoising
-            except AttributeError:
-                pass
-
 def update_override_device(self, context):
-    if self.override_device and self.scene:
-        engine = self.scene.render.engine
-        if self.override_engine:
-            engine = self.render_engine
-            
-        if engine == 'CYCLES':
-            try:
-                self.device = self.scene.cycles.device
-            except AttributeError:
-                pass
+    if self.override_device:
+        context.window_manager.rendercue.ui_show_render = True
+        if self.scene:
+            engine = self.scene.render.engine
+            if self.override_engine:
+                engine = self.render_engine
+                
+            if engine == 'CYCLES':
+                try:
+                    self.device = self.scene.cycles.device
+                except AttributeError:
+                    pass
 
 def update_override_time_limit(self, context):
-    if self.override_time_limit and self.scene:
-        engine = self.scene.render.engine
-        if self.override_engine:
-            engine = self.render_engine
-            
-        if engine == 'CYCLES':
-            try:
-                self.time_limit = self.scene.cycles.time_limit
-            except AttributeError:
-                pass
+    if self.override_time_limit:
+        context.window_manager.rendercue.ui_show_render = True
+        if self.scene:
+            engine = self.scene.render.engine
+            if self.override_engine:
+                engine = self.render_engine
+                
+            if engine == 'CYCLES':
+                try:
+                    self.time_limit = self.scene.cycles.time_limit
+                except AttributeError:
+                    pass
 
 def update_override_persistent_data(self, context):
-    if self.override_persistent_data and self.scene:
-        # This is a general render setting but often associated with Cycles performance
-        try:
-            self.use_persistent_data = self.scene.render.use_persistent_data
-        except AttributeError:
-            pass
+    if self.override_persistent_data:
+        context.window_manager.rendercue.ui_show_render = True
+        if self.scene:
+            # This is a general render setting but often associated with Cycles performance
+            try:
+                self.use_persistent_data = self.scene.render.use_persistent_data
+            except AttributeError:
+                pass
 
 def get_available_renderers(self, context):
     """Dynamically enumerate all available render engines using robust detection."""
@@ -283,6 +315,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         name="Override Output", 
         default=False,
         description="Save output to a custom location for this job",
+        update=update_override_output,
         options={'SKIP_SAVE'}
     )
     output_path: bpy.props.StringProperty(
@@ -394,31 +427,7 @@ class RenderCueJob(bpy.types.PropertyGroup):
         options={'SKIP_SAVE'}
     )
     
-    # UI State Properties
-    ui_show_output: bpy.props.BoolProperty(
-        name="Output Settings",
-        default=True,
-        description="Show output settings",
-        options={'SKIP_SAVE'}
-    )
-    ui_show_dimensions: bpy.props.BoolProperty(
-        name="Range & Resolution",
-        default=True,
-        description="Show range and resolution settings",
-        options={'SKIP_SAVE'}
-    )
-    ui_show_format: bpy.props.BoolProperty(
-        name="Format",
-        default=True,
-        description="Show format settings",
-        options={'SKIP_SAVE'}
-    )
-    ui_show_render: bpy.props.BoolProperty(
-        name="Render",
-        default=True,
-        description="Show render settings",
-        options={'SKIP_SAVE'}
-    )
+
 
     # Job status tracking
     render_status: bpy.props.EnumProperty(
@@ -641,34 +650,10 @@ class RenderCueSettings(bpy.types.PropertyGroup):
         options={'SKIP_SAVE'}
     )
 
-    # Summary Banner Properties
-    show_summary_banner: bpy.props.BoolProperty(
-        name="Show Summary Banner",
-        default=False,
-        description="Show the render completion summary banner",
-        options={'SKIP_SAVE'}
-    )
-
-    summary_session_id: bpy.props.StringProperty(
-        name="Summary Session ID",
-        default="",
-        description="Unique ID for this render session",
-        options={'SKIP_SAVE'}
-    )
-
-    summary_timestamp: bpy.props.FloatProperty(
-        name="Summary Timestamp",
+    # Status Bar Completion Timestamp
+    completion_statusbar_timestamp: bpy.props.FloatProperty(
+        name="Completion Timestamp",
         default=0.0,
-        description="When this summary was generated",
-        options={'SKIP_SAVE'}
-    )
-    
-    summary_auto_dismiss_seconds: bpy.props.IntProperty(
-        name="Auto Dismiss After",
-        default=0,
-        min=0,
-        max=3600,
-        description="Automatically dismiss banner after this many seconds (0 = never)",
         options={'SKIP_SAVE'}
     )
 

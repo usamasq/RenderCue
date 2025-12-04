@@ -139,7 +139,6 @@ def get_mixed_engine_warning(settings):
             engines.add(engine)
     
     if len(engines) > 1:
-        engine_list = ', '.join(sorted(engines))
-        return f"Queue uses {len(engines)} engines: {engine_list}"
+        return f"Queue uses {len(engines)} different engines"
     
     return None

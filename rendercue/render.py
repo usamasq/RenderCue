@@ -285,16 +285,19 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             settings.summary_total_frames = total_frames
             settings.summary_render_time = time_str
             settings.summary_blend_file = os.path.basename(bpy.data.filepath) or "Untitled.blend"
-            settings.summary_session_id = getattr(self, '_session_id', '')
-            settings.summary_timestamp = time.time()
             
-            # Show banner
-            settings.show_summary_banner = True
+            # Store completion timestamp for Status Bar
+            settings.completion_statusbar_timestamp = time.time()
             
-            # Start auto-dismiss timer if configured
+            # Handle Completion Feedback (Popup)
+            # Status bar is handled automatically by UI drawing based on timestamp
             prefs = context.preferences.addons[__package__].preferences
-            if hasattr(prefs, 'banner_auto_dismiss') and prefs.banner_auto_dismiss > 0:
-                settings.summary_auto_dismiss_seconds = prefs.banner_auto_dismiss
+            
+            if prefs.show_completion_popup:
+                # Trigger popup
+                # We use a timer to defer this call slightly to ensure we are out of the modal loop context if needed,
+                # but usually calling INVOKE_DEFAULT works.
+                bpy.ops.rendercue.show_summary_popup('INVOKE_DEFAULT')
 
         # Desktop Notification
         if prefs.show_notifications:

@@ -128,13 +128,15 @@ def draw_queue_health_panel(layout, context):
     
     validation = ui_helpers.get_queue_validation_summary(context)
     
-    # Error Box (HIG: Color Coding - Red)
+    # Always create box to prevent layout shift
+    health_box = layout.box()
+    
+    # Error State (Red)
     if validation['errors']:
-        error_box = layout.box()
-        error_box.alert = True
+        health_box.alert = True
         
         # Header
-        header = error_box.row()
+        header = health_box.row()
         header.scale_y = 0.9
         header.label(
             text=f"{len(validation['errors'])} Critical Issue(s)",
@@ -143,30 +145,27 @@ def draw_queue_health_panel(layout, context):
         
         # Show first 2 errors (HIG: Clarity)
         for error in validation['errors'][:2]:
-            row = error_box.row()
+            row = health_box.row()
             row.scale_y = 0.7
             row.label(text=f"• {error}")
         
         # "More" indicator
         if len(validation['errors']) > 2:
-            row = error_box.row()
+            row = health_box.row()
             row.scale_y = 0.7
             row.label(text=f"... +{len(validation['errors']) - 2} more")
         
         # Action button
-        row = error_box.row()
+        row = health_box.row()
         row.operator(
             "rendercue.validate_queue",
             icon='CHECKMARK',
             text="View All Issues"
         )
-        return  # Don't show warnings if errors exist
-    
-    # Warning Box (HIG: Color Coding - Orange)
-    if validation['warnings']:
-        warn_box = layout.box()
         
-        header = warn_box.row()
+    # Warning State (Orange)
+    elif validation['warnings']:
+        header = health_box.row()
         header.scale_y = 0.9
         header.label(
             text=f"{len(validation['warnings'])} Warning(s)",
@@ -179,14 +178,20 @@ def draw_queue_health_panel(layout, context):
         
         # Show first 2 warnings
         for warning in validation['warnings'][:2]:
-            row = warn_box.row()
+            row = health_box.row()
             row.scale_y = 0.7
             row.label(text=f"⚠ {warning}")
         
         if len(validation['warnings']) > 2:
-            row = warn_box.row()
+            row = health_box.row()
             row.scale_y = 0.7
             row.label(text=f"... +{len(validation['warnings']) - 2} more")
+            
+    # Success State (Green/Dimmed)
+    else:
+        row = health_box.row()
+        row.enabled = False
+        row.label(text="Queue Ready", icon='CHECKMARK')
 
 class RenderCuePanelMixin:
     """Mixin class for shared panel drawing logic."""
@@ -195,71 +200,7 @@ class RenderCuePanelMixin:
     bl_region_type = 'WINDOW'
     bl_context = "render"
     
-    def draw_summary_banner(self, layout, settings, context):
-        """Draw render completion summary banner."""
-        
-        # Auto-dismiss check
-        if settings.summary_auto_dismiss_seconds > 0:
-            elapsed = time.time() - settings.summary_timestamp
-            if elapsed > settings.summary_auto_dismiss_seconds:
-                settings.show_summary_banner = False
-                return
-        
-        # Main banner
-        banner = layout.box()
-        banner.scale_y = UI_BANNER_SCALE
-        
-        # Header with status and dismiss
-        header = banner.row(align=True)
-        
-        # Status icon based on results
-        if settings.summary_failed_jobs == 0:
-            header.label(text="RENDER COMPLETE", icon='CHECKMARK')
-        elif settings.summary_successful_jobs > 0:
-            header.label(text="RENDER COMPLETE (WITH ERRORS)", icon='ERROR')
-        else:
-            header.label(text="RENDER FAILED", icon='CANCEL')
-        
-        # Spacer
-        spacer = header.row()
-        spacer.scale_x = UI_SPACER_SCALE
-        
-        # Dismiss button
-        dismiss = header.row()
-        dismiss.alignment = 'RIGHT'
-        dismiss.scale_x = 0.7
-        dismiss.operator("rendercue.dismiss_banner", text="", icon='X', emboss=False)
-        
-        # Stats grid
-        stats = banner.grid_flow(row_major=True, columns=3, align=True)
-        stats.scale_y = 0.85
-        
-        # Column 1: Jobs
-        col1 = stats.column(align=True)
-        col1.label(text="Jobs", icon='PRESET')
-        jobs_row = col1.row(align=True)
-        jobs_row.label(text=str(settings.summary_total_jobs))
-        
-        # Column 2: Results
-        col2 = stats.column(align=True)
-        col2.label(text="Results", icon='CHECKMARK')
-        result_row = col2.row(align=True)
-        result_row.label(text=f"{settings.summary_successful_jobs}", icon='CHECKMARK')
-        if settings.summary_failed_jobs > 0:
-            fail_part = result_row.row(align=True)
-            fail_part.alert = True
-            fail_part.label(text=f"{settings.summary_failed_jobs}", icon='ERROR')
-        
-        # Column 3: Duration
-        col3 = stats.column(align=True)
-        col3.label(text="Duration", icon='TIME')
-        col3.label(text=settings.summary_render_time)
-        
-        # Details row
-        banner.separator(factor=0.3)
-        details = banner.row()
-        details.scale_y = 0.7
-        details.label(text=f"{settings.summary_blend_file} • {settings.summary_total_frames} frames", icon='FILE_FOLDER')
+
     
     def draw(self, context):
         layout = self.layout
@@ -267,20 +208,11 @@ class RenderCuePanelMixin:
         settings = context.window_manager.rendercue
         
         # Progress Indicator
-        # Summary Banner (if exists)
-        if settings.show_summary_banner:
-            self.draw_summary_banner(layout, settings, context)
+
         
         # Rendering Progress
         if settings.is_rendering:
             self.draw_rendering_ui(layout, settings, context)
-            
-            # Show queue in read-only mode (collapsed by default could be better, but let's keep it visible)
-            layout.separator()
-            layout.label(text="Current Queue", icon='LOCKED')
-            row = layout.row()
-            row.enabled = False # Disable interaction
-            row.template_list("RENDER_UL_render_cue_jobs", "", settings, "jobs", settings, "active_job_index")
             return
             
         # Main UI (when not rendering)
@@ -441,9 +373,11 @@ class RenderCuePanelMixin:
         """Draw the main configuration UI."""
         # Main List
         if not settings.jobs and bpy.data.texts.get(".rendercue_data"):
-            box = layout.box()
-            box.label(text="Saved queue available", icon='INFO')
-            box.operator("rendercue.load_data", icon='IMPORT', text="Load Data")
+            # Subtle notification row instead of box
+            row = layout.row(align=True)
+            row.alignment = 'CENTER'
+            row.label(text="Saved queue data found", icon='INFO')
+            row.operator("rendercue.load_data", icon='IMPORT', text="Load")
             
         row = layout.row()
         row.template_list("RENDER_UL_render_cue_jobs", "", settings, "jobs", settings, "active_job_index")
@@ -456,6 +390,13 @@ class RenderCuePanelMixin:
         col.operator("rendercue.move_job", icon='TRIA_UP', text="").direction = 'UP'
         col.operator("rendercue.move_job", icon='TRIA_DOWN', text="").direction = 'DOWN'
         
+        if not settings.jobs:
+            # Helper message for empty state
+            row = layout.row()
+            row.alignment = 'CENTER'
+            row.enabled = False
+            row.label(text="No jobs. Click + or 'Add All Scenes' to start.")
+        
         layout.separator()
         draw_queue_health_panel(layout, context)
         layout.separator()
@@ -464,18 +405,22 @@ class RenderCuePanelMixin:
         
         # Scene Availability Info
         stats = ui_helpers.get_scene_statistics(context)
-        if stats['total'] > 0:
-            info_row = layout.row()
-            info_row.scale_y = 0.75
-            
-            if stats['available'] > 0:
-                info_row.label(text=f"{stats['available']} scene(s) can be added", icon='ADD')
-            elif stats['with_cameras'] == 0:
-                info_row.alert = True
-                info_row.label(text="No scenes have cameras assigned", icon='ERROR')
-            else:
-                info_row.enabled = False
-                info_row.label(text="All scenes with cameras in queue", icon='CHECKMARK')
+        
+        # Always show info row
+        info_row = layout.row()
+        info_row.scale_y = 0.75
+        
+        if stats['total'] == 0:
+            info_row.enabled = False
+            info_row.label(text="No scenes in file", icon='INFO')
+        elif stats['available'] > 0:
+            info_row.label(text=f"{stats['available']} scene(s) can be added", icon='ADD')
+        elif stats['with_cameras'] == 0:
+            info_row.alert = True
+            info_row.label(text="No scenes have cameras assigned", icon='ERROR')
+        else:
+            info_row.enabled = False
+            info_row.label(text="All scenes with cameras in queue", icon='CHECKMARK')
 
         row = layout.row(align=True)
         row.scale_y = 1.2
@@ -488,11 +433,16 @@ class RenderCuePanelMixin:
         
         # Check for mixed engines
         warning = ui_helpers.get_mixed_engine_warning(settings)
+        
+        warn_row = layout.row()
+        warn_row.scale_y = 0.8
+        
         if warning:
-            warn_row = layout.row()
-            warn_row.alert = True
-            warn_row.scale_y = 0.8
-            warn_row.label(text=warning, icon='ERROR')
+            # Informational only - mixed engines is a valid choice
+            warn_row.label(text=warning, icon='INFO')
+        else:
+            warn_row.enabled = False
+            warn_row.label(text="All jobs use same engine", icon='CHECKMARK')
 
         row.menu("RENDERCUE_MT_presets_menu", icon='PRESET', text="Presets")
         
@@ -591,9 +541,11 @@ class RenderCuePanelMixin:
 
             if settings.ui_show_overrides_main:
                 # Collapsible Summary (Dashboard)
+                # Always show summary box to prevent layout shift
+                summary_box = box.box()
+                summary_header = summary_box.row()
+                
                 if override_info['count'] > 0:
-                    summary_box = box.box()
-                    summary_header = summary_box.row()
                     summary_header.prop(
                         settings,
                         "ui_show_override_summary",
@@ -620,283 +572,289 @@ class RenderCuePanelMixin:
                             op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
                             op.data_path_bool = bool_prop
                             op.data_path_val = val_prop
+                else:
+                    # Show empty state (dimmed, no collapse icon)
+                    row = summary_header.row()
+                    row.enabled = False
+                    row.label(text="No Active Overrides", icon='INFO')
                 
                 # Create parent column for all collapsible sections
                 parent_col = box.column(align=True)
                 parent_col.separator()
-            
-            # Helper for collapsible group styling
-            def draw_collapsible_box(layout, settings, prop_name, title, icon, is_active=False):
-                box = layout.box()
-                row = box.row(align=True)
                 
-                # Split Header: Title (Left) | Status & Icon (Right)
-                split = row.split(factor=0.6)
-                
-                # Left: Toggle
-                left = split.row(align=True)
-                left.alignment = 'LEFT'
-                
-                is_expanded = getattr(settings, prop_name)
-                icon_state = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
-                
-                left.prop(settings, prop_name, icon=icon_state, text=title, emboss=False)
-                
-                # Right: Status + Icon
-                right = split.row(align=True)
-                right.alignment = 'RIGHT'
-                
-                if is_active:
-                    right.label(text="[Active]", icon='CHECKMARK')
-                    right.separator()
-                
-                right.label(text="", icon=icon)
-                
-                if is_expanded:
-                    # Add some padding inside the box
-                    col = box.column(align=True)
-                    col.separator()
-                    return col
-                return None
-            
-            # Group: Output Settings
-            is_output_active = (job.override_output or job.override_camera or 
-                               job.override_transparent or job.override_compositor)
-            col = draw_collapsible_box(parent_col, settings, "ui_show_output", "Output Settings", 'FILE_FOLDER', is_active=is_output_active)
-            
-            if col:
-                # Output Path
-                row = col.row(align=True)
-                row.prop(job, "override_output", text="Output Path")
-                
-                if job.override_output:
-                    sub_col = col.column(align=True)
-                    sub_col.use_property_split = True
-                    sub_col.use_property_decorate = False
+                # Helper for collapsible group styling
+                def draw_collapsible_box(layout, settings, prop_name, title, icon, is_active=False):
+                    box = layout.box()
+                    row = box.row(align=True)
                     
-                    row = sub_col.row(align=True)
-                    row.prop(job, "output_path", text="Path")
-                    sub = row.row(align=True)
-                    sub.scale_x = 1.0
-                    op = sub.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
-                    op.target_property = "job_output_path"
-                
-
-
-                # Camera Override
-                row = col.row(align=True)
-                row.prop(job, "override_camera", text="Camera")
-                
-                if job.override_camera:
-                    sub_col = col.column(align=True)
-                    sub_col.use_property_split = True
-                    sub_col.use_property_decorate = False
-                    sub_col.prop(job, "camera", text="Camera")
-                
-
-
-                # Transparent Background
-                row = col.row(align=True)
-                row.prop(job, "override_transparent", text="Transparent Background")
-                
-                if job.override_transparent:
-                    sub_col = col.column(align=True)
-                    sub_col.use_property_split = True
-                    sub_col.use_property_decorate = False
-                    sub_col.prop(job, "film_transparent", text="Transparent")
-                
-
-
-                # Compositor
-                row = col.row(align=True)
-                row.prop(job, "override_compositor", text="Compositor")
-                
-                if job.override_compositor:
-                    sub_col = col.column(align=True)
-                    sub_col.use_property_split = True
-                    sub_col.use_property_decorate = False
-                    sub_col.prop(job, "use_compositor", text="Enable")
+                    # Split Header: Title (Left) | Status & Icon (Right)
+                    split = row.split(factor=0.6)
                     
-
-            
-            # Group: Range & Resolution
-            is_dim_active = (job.override_frame_range or job.override_frame_step or 
-                            job.override_resolution)
-            col = draw_collapsible_box(parent_col, settings, "ui_show_dimensions", "Range & Resolution", 'SETTINGS', is_active=is_dim_active)
-
-            if col:
-                # Frame Range
-                row = col.row(align=True)
-                row.prop(job, "override_frame_range", text="Frame Range")
-                
-
-                
-                if job.override_frame_range:
-                    sub_col = col.column(align=True)
-                    sub_col.use_property_split = True
-                    sub_col.use_property_decorate = False
+                    # Left: Toggle
+                    left = split.row(align=True)
+                    left.alignment = 'LEFT'
                     
-                    sub_col.prop(job, "frame_start", text="Start")
-                    sub_col.prop(job, "frame_end", text="End")
-
-
-
-                # Frame Step
-                row = col.row(align=True)
-                row.prop(job, "override_frame_step", text="Frame Step")
-                
-                if job.override_frame_step:
-                    sub_col = col.column(align=True)
-                    sub_col.use_property_split = True
-                    sub_col.use_property_decorate = False
-                    sub_col.prop(job, "frame_step", text="Step")
+                    is_expanded = getattr(settings, prop_name)
+                    icon_state = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
                     
-                    # Show estimated frames
-                    if job.frame_step > 1:
-                        total_frames = job.frame_end - job.frame_start + 1
-                        render_frames = (total_frames + job.frame_step - 1) // job.frame_step
-                        sub_col.label(text=f"Renders approx. {render_frames} frames", icon='INFO')
-                
-
-
-                # Resolution
-                row = col.row(align=True)
-                row.prop(job, "override_resolution", text="Resolution")
-                
-
-                
-                if job.override_resolution:
-                    sub_col = col.column(align=True)
-                    sub_col.use_property_split = True
-                    sub_col.use_property_decorate = False
-                    sub_col.prop(job, "resolution_scale", text="Scale %")
+                    left.prop(settings, prop_name, icon=icon_state, text=title, emboss=False)
                     
-
-            
-            # Group: Format
-            col = draw_collapsible_box(parent_col, settings, "ui_show_format", "Format", 'IMAGE_DATA', is_active=job.override_format)
-            
-            if col:
-                row = col.row(align=True)
-                row.prop(job, "override_format", text="Format")
-                
-
-                
-                col.separator()
-                
-                if job.override_format:
-                    sub_col = col.column(align=True)
-                    sub_col.use_property_split = True
-                    sub_col.use_property_decorate = False
-                    sub_col.prop(job, "render_format", text="File Format")
+                    # Right: Status + Icon
+                    right = split.row(align=True)
+                    right.alignment = 'RIGHT'
                     
-
-            
-            # Group: Render
-            is_render_active = (job.override_engine or job.override_view_layer or
-                               job.override_samples or job.override_denoising or
-                               job.override_device or job.override_time_limit or
-                               job.override_persistent_data)
-            col = draw_collapsible_box(parent_col, settings, "ui_show_render", "Render", 'RESTRICT_RENDER_OFF', is_active=is_render_active)
-
-            if col:
-                # Engine
-                row = col.row(align=True)
-                row.prop(job, "override_engine", text="Engine")
+                    if is_active:
+                        right.label(text="[Active]", icon='CHECKMARK')
+                        right.separator()
+                    
+                    right.label(text="", icon=icon)
+                    
+                    if is_expanded:
+                        # Add some padding inside the box
+                        col = box.column(align=True)
+                        col.separator()
+                        return col
+                    return None
                 
-
+                # Group: Output Settings
+                is_output_active = (job.override_output or job.override_camera or 
+                                   job.override_transparent or job.override_compositor)
+                col = draw_collapsible_box(parent_col, settings, "ui_show_output", "Output Settings", 'FILE_FOLDER', is_active=is_output_active)
                 
-                if job.override_engine:
-                    sub_col = col.column(align=True)
-                    sub_col.use_property_split = True
-                    sub_col.use_property_decorate = False
-                    sub_col.prop(job, "render_engine", text="Engine")
-
-                col.separator()
-                
-                # Determine effective engine
-                effective_engine = job.render_engine if job.override_engine else (job.scene.render.engine if job.scene else 'CYCLES')
-
-
-
-                # Samples (Cycles/Eevee only)
-                if effective_engine in ['CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT']:
+                if col:
+                    # Output Path
                     row = col.row(align=True)
-                    row.prop(job, "override_samples", text="Samples")
+                    row.prop(job, "override_output", text="Output Path")
                     
-
-                    
-                    if job.override_samples:
+                    if job.override_output:
                         sub_col = col.column(align=True)
                         sub_col.use_property_split = True
                         sub_col.use_property_decorate = False
-                        sub_col.prop(job, "samples", text="Samples")
+                        
+                        row = sub_col.row(align=True)
+                        row.prop(job, "output_path", text="Path")
+                        sub = row.row(align=True)
+                        sub.scale_x = 1.0
+                        op = sub.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
+                        op.target_property = "job_output_path"
                     
+
+
+                    # Camera Override
+                    row = col.row(align=True)
+                    row.prop(job, "override_camera", text="Camera")
+                    
+                    if job.override_camera:
+                        sub_col = col.column(align=True)
+                        sub_col.use_property_split = True
+                        sub_col.use_property_decorate = False
+                        sub_col.prop(job, "camera", text="Camera")
+                    
+
+
+                    # Transparent Background
+                    row = col.row(align=True)
+                    row.prop(job, "override_transparent", text="Transparent Background")
+                    
+                    if job.override_transparent:
+                        sub_col = col.column(align=True)
+                        sub_col.use_property_split = True
+                        sub_col.use_property_decorate = False
+                        sub_col.prop(job, "film_transparent", text="Transparent")
+                    
+
+
+                    # Compositor
+                    row = col.row(align=True)
+                    row.prop(job, "override_compositor", text="Compositor")
+                    
+                    if job.override_compositor:
+                        sub_col = col.column(align=True)
+                        sub_col.use_property_split = True
+                        sub_col.use_property_decorate = False
+                        sub_col.prop(job, "use_compositor", text="Enable")
+                        
 
                 
-                # === Cycles-Only Section ===
-                if effective_engine == 'CYCLES':
-                    col.separator()
-                    col.label(text="Cycles Settings", icon='SETTINGS')
-                    
-                    # Denoising
+                # Group: Range & Resolution
+                is_dim_active = (job.override_frame_range or job.override_frame_step or 
+                                job.override_resolution)
+                col = draw_collapsible_box(parent_col, settings, "ui_show_dimensions", "Range & Resolution", 'SETTINGS', is_active=is_dim_active)
+
+                if col:
+                    # Frame Range
                     row = col.row(align=True)
-                    row.prop(job, "override_denoising", text="Denoising")
-                    if job.override_denoising:
-                        sub_col = col.column(align=True)
-                        sub_col.use_property_split = True
-                        sub_col.use_property_decorate = False
-                        sub_col.prop(job, "use_denoising", text="Denoise")
+                    row.prop(job, "override_frame_range", text="Frame Range")
+                    
 
                     
-                    # Device
-                    row = col.row(align=True)
-                    row.prop(job, "override_device", text="Device")
-                    if job.override_device:
+                    if job.override_frame_range:
                         sub_col = col.column(align=True)
                         sub_col.use_property_split = True
                         sub_col.use_property_decorate = False
-                        sub_col.prop(job, "device", text="Device")
+                        
+                        sub_col.prop(job, "frame_start", text="Start")
+                        sub_col.prop(job, "frame_end", text="End")
+
+
+
+                    # Frame Step
+                    row = col.row(align=True)
+                    row.prop(job, "override_frame_step", text="Frame Step")
+                    
+                    if job.override_frame_step:
+                        sub_col = col.column(align=True)
+                        sub_col.use_property_split = True
+                        sub_col.use_property_decorate = False
+                        sub_col.prop(job, "frame_step", text="Step")
+                        
+                        # Show estimated frames
+                        if job.frame_step > 1:
+                            total_frames = job.frame_end - job.frame_start + 1
+                            render_frames = (total_frames + job.frame_step - 1) // job.frame_step
+                            sub_col.label(text=f"Renders approx. {render_frames} frames", icon='INFO')
+                    
+
+
+                    # Resolution
+                    row = col.row(align=True)
+                    row.prop(job, "override_resolution", text="Resolution")
+                    
 
                     
-                    # Time Limit
-                    row = col.row(align=True)
-                    row.prop(job, "override_time_limit", text="Time Limit")
-                    if job.override_time_limit:
+                    if job.override_resolution:
                         sub_col = col.column(align=True)
                         sub_col.use_property_split = True
                         sub_col.use_property_decorate = False
-                        sub_col.prop(job, "time_limit", text="Time Limit")
-
-                    
-                    # Persistent Data
-                    row = col.row(align=True)
-                    row.prop(job, "override_persistent_data", text="Persistent Data")
-                    if job.override_persistent_data:
-                        sub_col = col.column(align=True)
-                        sub_col.use_property_split = True
-                        sub_col.use_property_decorate = False
-                        sub_col.prop(job, "use_persistent_data", text="Persistent Data")
+                        sub_col.prop(job, "resolution_scale", text="Scale %")
+                        
 
                 
-
-
-                # View Layer
-                if job.scene and len(job.scene.view_layers) > 1:
+                # Group: Format
+                col = draw_collapsible_box(parent_col, settings, "ui_show_format", "Format", 'IMAGE_DATA', is_active=job.override_format)
+                
+                if col:
                     row = col.row(align=True)
-                    row.prop(job, "override_view_layer", text="View Layer")
+                    row.prop(job, "override_format", text="Format")
                     
 
                     
                     col.separator()
                     
-                    if job.override_view_layer:
+                    if job.override_format:
                         sub_col = col.column(align=True)
                         sub_col.use_property_split = True
                         sub_col.use_property_decorate = False
-                        sub_col.prop_search(job, "view_layer", job.scene, "view_layers", text="Layer")
+                        sub_col.prop(job, "render_format", text="File Format")
+                        
+
+                
+                # Group: Render
+                is_render_active = (job.override_engine or job.override_view_layer or
+                                   job.override_samples or job.override_denoising or
+                                   job.override_device or job.override_time_limit or
+                                   job.override_persistent_data)
+                col = draw_collapsible_box(parent_col, settings, "ui_show_render", "Render", 'RESTRICT_RENDER_OFF', is_active=is_render_active)
+
+                if col:
+                    # Engine
+                    row = col.row(align=True)
+                    row.prop(job, "override_engine", text="Engine")
                     
+
+                    
+                    if job.override_engine:
+                        sub_col = col.column(align=True)
+                        sub_col.use_property_split = True
+                        sub_col.use_property_decorate = False
+                        sub_col.prop(job, "render_engine", text="Engine")
+
                     col.separator()
+                    
+                    # Determine effective engine
+                    effective_engine = job.render_engine if job.override_engine else (job.scene.render.engine if job.scene else 'CYCLES')
+
+
+
+                    # Samples (Cycles/Eevee only)
+                    if effective_engine in ['CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT']:
+                        row = col.row(align=True)
+                        row.prop(job, "override_samples", text="Samples")
+                        
+
+                        
+                        if job.override_samples:
+                            sub_col = col.column(align=True)
+                            sub_col.use_property_split = True
+                            sub_col.use_property_decorate = False
+                            sub_col.prop(job, "samples", text="Samples")
+                        
+
+                    
+                    # === Cycles-Only Section ===
+                    if effective_engine == 'CYCLES':
+                        col.separator()
+                        col.label(text="Cycles Settings", icon='SETTINGS')
+                        
+                        # Denoising
+                        row = col.row(align=True)
+                        row.prop(job, "override_denoising", text="Denoising")
+                        if job.override_denoising:
+                            sub_col = col.column(align=True)
+                            sub_col.use_property_split = True
+                            sub_col.use_property_decorate = False
+                            sub_col.prop(job, "use_denoising", text="Denoise")
+
+                        
+                        # Device
+                        row = col.row(align=True)
+                        row.prop(job, "override_device", text="Device")
+                        if job.override_device:
+                            sub_col = col.column(align=True)
+                            sub_col.use_property_split = True
+                            sub_col.use_property_decorate = False
+                            sub_col.prop(job, "device", text="Device")
+
+                        
+                        # Time Limit
+                        row = col.row(align=True)
+                        row.prop(job, "override_time_limit", text="Time Limit")
+                        if job.override_time_limit:
+                            sub_col = col.column(align=True)
+                            sub_col.use_property_split = True
+                            sub_col.use_property_decorate = False
+                            sub_col.prop(job, "time_limit", text="Time Limit")
+
+                        
+                        # Persistent Data
+                        row = col.row(align=True)
+                        row.prop(job, "override_persistent_data", text="Persistent Data")
+                        if job.override_persistent_data:
+                            sub_col = col.column(align=True)
+                            sub_col.use_property_split = True
+                            sub_col.use_property_decorate = False
+                            sub_col.prop(job, "use_persistent_data", text="Persistent Data")
+
+                    
+
+
+
+                    # View Layer
+                    if job.scene and len(job.scene.view_layers) > 1:
+                        row = col.row(align=True)
+                        row.prop(job, "override_view_layer", text="View Layer")
+                        
+
+                        
+                        col.separator()
+                        
+                        if job.override_view_layer:
+                            sub_col = col.column(align=True)
+                            sub_col.use_property_split = True
+                            sub_col.use_property_decorate = False
+                            sub_col.prop_search(job, "view_layer", job.scene, "view_layers", text="Layer")
+                        
+                        col.separator()
             
         layout.separator()
         
@@ -976,32 +934,34 @@ class RENDER_PT_render_cue_dashboard(RenderCuePanelMixin, bpy.types.Panel):
         settings = context.window_manager.rendercue
         layout = self.layout
         
+        # Always use a box for consistent layout
+        box = layout.box()
+        
         if settings.is_rendering:
-            box = layout.box()
             box.label(text="Status: RENDERING", icon='RENDER_ANIMATION')
             box.prop(settings, "progress_message", text="")
             
             row = box.row()
             row.label(text=f"Job: {settings.current_job_index + 1}/{settings.total_jobs_count}")
             row.label(text=f"ETR: {settings.etr}")
+        
+        elif settings.last_render_status != 'NONE':
+            icon = 'INFO'
+            if settings.last_render_status == 'SUCCESS':
+                icon = 'CHECKMARK'
+            elif settings.last_render_status == 'FAILED':
+                icon = 'ERROR'
+            elif settings.last_render_status == 'CANCELLED':
+                icon = 'CANCEL'
+            
+            row = box.row()
+            row.label(text=settings.last_render_message, icon=icon)
+            # Clear button
+            op = row.operator("rendercue.clear_status", text="", icon='X')
+            
         else:
-            # Status Indicator
-            if settings.last_render_status != 'NONE':
-                icon = 'INFO'
-                if settings.last_render_status == 'SUCCESS':
-                    icon = 'CHECKMARK'
-                elif settings.last_render_status == 'FAILED':
-                    icon = 'ERROR'
-                elif settings.last_render_status == 'CANCELLED':
-                    icon = 'CANCEL'
-                
-                box = layout.box()
-                row = box.row()
-                row.label(text=settings.last_render_message, icon=icon)
-                # Clear button
-                op = row.operator("rendercue.clear_status", text="", icon='X')
-            else:
-                layout.label(text="Idle", icon='SLEEP')
+            # Idle state
+            box.label(text="Status: Idle", icon='PAUSE')
 
 class VIEW3D_PT_render_cue(RenderCuePanelMixin, bpy.types.Panel):
     """RenderCue panel in the 3D Viewport sidebar."""
@@ -1030,8 +990,29 @@ class RENDERCUE_OT_clear_status(bpy.types.Operator):
 def draw_status_bar(self, context):
     """Draw RenderCue status in the Blender status bar."""
     settings = context.window_manager.rendercue
+    
     if settings.is_rendering:
         self.layout.label(text=f"RenderCue: {settings.progress_message} | ETR: {settings.etr}", icon='RENDER_ANIMATION')
+    else:
+        # Check for completion message
+        try:
+            # We need to access preferences safely
+            addon_name = __package__ if __package__ else "RenderCue"
+            if addon_name in context.preferences.addons:
+                prefs = context.preferences.addons[addon_name].preferences
+                
+                if prefs.show_completion_statusbar and settings.completion_statusbar_timestamp > 0:
+                    import time
+                    elapsed = time.time() - settings.completion_statusbar_timestamp
+                    if elapsed < prefs.statusbar_display_seconds:
+                        # Show completion message
+                        icon = 'CHECKMARK' if settings.summary_failed_jobs == 0 else 'ERROR'
+                        msg = f"RenderCue: Completed {settings.summary_successful_jobs}/{settings.summary_total_jobs} jobs ({settings.summary_total_frames} frames) in {settings.summary_render_time}"
+                        if settings.summary_failed_jobs > 0:
+                            msg += f" | {settings.summary_failed_jobs} Failed"
+                        self.layout.label(text=msg, icon=icon)
+        except Exception:
+            pass # Fail silently in status bar draw
 
 def register():
     bpy.utils.register_class(RENDER_UL_render_cue_jobs)
