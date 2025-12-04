@@ -1,10 +1,24 @@
+"""
+RenderCue Core Module
+
+This module contains the core logic for the RenderCue addon, including:
+- StateManager: Handles saving and loading of the render queue.
+- BackgroundWorker: Manages the background rendering process.
+- RenderCueLogger: Provides a consistent logging interface.
+- Utility functions for frame renumbering and file management.
+"""
+
 import bpy
 import os
 import json
 import logging
 import time
+import glob
+import re
+import shutil
 from .constants import (
     MANIFEST_JOBS, MANIFEST_GLOBAL_OUTPUT, MANIFEST_OUTPUT_LOCATION,
+    MANIFEST_RENUMBER_OUTPUT,
     JOB_SCENE_NAME, JOB_FRAME_START, JOB_FRAME_END, JOB_OVERRIDE_FRAME_RANGE,
     JOB_OVERRIDE_OUTPUT, JOB_OUTPUT_PATH, JOB_OVERRIDE_RESOLUTION,
     JOB_RESOLUTION_SCALE, JOB_OVERRIDE_SAMPLES, JOB_SAMPLES,
@@ -24,37 +38,49 @@ from .constants import (
     DEFAULT_ETR, PAUSE_SIGNAL_FILENAME, PREVIEW_FILENAME_PREFIX,
     DEBUG_LOG_FILENAME, STATUS_PAUSED_DURATION
 )
+from . import version_compat
+
+# --- Logging ---
 
 class RenderCueLogger:
+    """Centralized logging configuration for RenderCue."""
     _logger = None
 
     @staticmethod
-    def get_logger(output_dir):
+    def get_logger(output_dir=None):
+        """Get or create the RenderCue logger.
+        
+        Args:
+            output_dir (str, optional): Directory to save the log file. 
+                                      If None, only console logging is configured.
+        """
         if RenderCueLogger._logger:
             return RenderCueLogger._logger
             
-        log_file = os.path.join(output_dir, "rendercue.log")
-        
         logger = logging.getLogger("RenderCue")
         logger.setLevel(logging.DEBUG)
         
-        # File Handler
-        fh = logging.FileHandler(log_file)
-        fh.setLevel(logging.DEBUG)
-        
-        # Console Handler
-        ch = logging.StreamHandler()
-        ch.setLevel(logging.INFO)
-        
-        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-        fh.setFormatter(formatter)
-        ch.setFormatter(formatter)
-        
-        logger.addHandler(fh)
-        logger.addHandler(ch)
+        # Avoid adding handlers multiple times
+        if not logger.handlers:
+            # Console Handler
+            ch = logging.StreamHandler()
+            ch.setLevel(logging.INFO)
+            formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+            ch.setFormatter(formatter)
+            logger.addHandler(ch)
+            
+            # File Handler (only if output_dir is provided)
+            if output_dir:
+                log_file = os.path.join(output_dir, "rendercue.log")
+                fh = logging.FileHandler(log_file)
+                fh.setLevel(logging.DEBUG)
+                fh.setFormatter(formatter)
+                logger.addHandler(fh)
         
         RenderCueLogger._logger = logger
         return logger
+
+# --- State Management ---
 
 class StateManager:
     """Manages the saving and loading of the RenderCue queue state."""
@@ -72,6 +98,7 @@ class StateManager:
             "timestamp": time.time(),
             MANIFEST_GLOBAL_OUTPUT: settings.global_output_path,
             MANIFEST_OUTPUT_LOCATION: settings.output_location,
+            MANIFEST_RENUMBER_OUTPUT: settings.renumber_frame_step_output,
             MANIFEST_JOBS: []
         }
         
@@ -125,7 +152,8 @@ class StateManager:
             with open(filepath, 'w') as f:
                 json.dump(data, f, indent=4)
         except OSError as e:
-            print(f"Error saving state to {filepath}: {e}")
+            logger = logging.getLogger("RenderCue")
+            logger.error(f"Error saving state to {filepath}: {e}")
             
     @staticmethod
     def load_state(context, filepath):
@@ -150,6 +178,7 @@ class StateManager:
             
             settings.global_output_path = data.get(MANIFEST_GLOBAL_OUTPUT, settings.global_output_path)
             settings.output_location = data.get(MANIFEST_OUTPUT_LOCATION, 'BLEND')
+            settings.renumber_frame_step_output = data.get(MANIFEST_RENUMBER_OUTPUT, False)
             
             for job_data in data.get(MANIFEST_JOBS, []):
                 job = settings.jobs.add()
@@ -212,8 +241,55 @@ class StateManager:
                 
             return True
         except (OSError, json.JSONDecodeError) as e:
-            print(f"Error loading state: {e}")
+            logger = logging.getLogger("RenderCue")
+            logger.error(f"Error loading state: {e}")
             return False
+
+    @staticmethod
+    def _sanitize_job_data(job, job_data, scene):
+        """
+        Validate and sanitize loaded job data against scene defaults.
+        
+        This prevents corrupted saved data from causing issues like incorrect
+        frame counts or invalid override states.
+        
+        Args:
+            job: RenderCueJob property group
+            job_data (dict): Loaded JSON data
+            scene: Blender scene object (if available)
+        """
+        # Validate frame range
+        logger = logging.getLogger("RenderCue")
+        if scene and job.override_frame_range:
+            # Sanity check: frame range should be within reasonable bounds
+            if job.frame_start < 0:
+                logger.warning(f"Negative frame_start ({job.frame_start}), resetting to scene default")
+                job.frame_start = scene.frame_start
+                
+            if job.frame_end < job.frame_start:
+                logger.warning(f"Invalid frame range ({job.frame_start}-{job.frame_end}), fixing")
+                job.frame_end = job.frame_start
+                
+            # If frame range matches scene, disable override (it's redundant and could cause confusion)
+            if job.frame_start == scene.frame_start and job.frame_end == scene.frame_end:
+                job.override_frame_range = False
+                logger.info("Frame range override matches scene defaults, disabled redundant override")
+        
+        # Validate frame step
+        if job.override_frame_step and job.frame_step < 1:
+            logger.warning(f"Invalid frame_step ({job.frame_step}), resetting to 1")
+            job.frame_step = 1
+            
+        # Validate resolution scale
+        if job.override_resolution:
+            if job.resolution_scale < 1 or job.resolution_scale > 10000:
+                logger.warning(f"Invalid resolution_scale ({job.resolution_scale}), resetting to 100")
+                job.resolution_scale = 100
+        
+        # Validate samples
+        if job.override_samples and job.samples < 1:
+            logger.warning(f"Invalid samples ({job.samples}), resetting to 128")
+            job.samples = 128
 
     @staticmethod
     def save_queue_to_text(context):
@@ -228,6 +304,7 @@ class StateManager:
         data = {
             MANIFEST_GLOBAL_OUTPUT: settings.global_output_path,
             MANIFEST_OUTPUT_LOCATION: settings.output_location,
+            MANIFEST_RENUMBER_OUTPUT: settings.renumber_frame_step_output,
             MANIFEST_JOBS: []
         }
         
@@ -297,11 +374,16 @@ class StateManager:
             
             settings.global_output_path = data.get(MANIFEST_GLOBAL_OUTPUT, settings.global_output_path)
             settings.output_location = data.get(MANIFEST_OUTPUT_LOCATION, 'BLEND')
+            settings.renumber_frame_step_output = data.get(MANIFEST_RENUMBER_OUTPUT, False)
             
             for job_data in data.get(MANIFEST_JOBS, []):
                 job = settings.jobs.add()
+                
+                # Load scene reference first so we can use it for validation
+                scene = None
                 if job_data.get(JOB_SCENE_NAME):
-                    job.scene = bpy.data.scenes.get(job_data[JOB_SCENE_NAME])
+                    scene = bpy.data.scenes.get(job_data[JOB_SCENE_NAME])
+                    job.scene = scene
                     
                 job.override_frame_range = job_data.get(JOB_OVERRIDE_FRAME_RANGE, False)
                 job.frame_start = job_data.get(JOB_FRAME_START, 1)
@@ -349,8 +431,12 @@ class StateManager:
                 
                 job.override_persistent_data = job_data.get(JOB_OVERRIDE_PERSISTENT_DATA, False)
                 job.use_persistent_data = job_data.get(JOB_USE_PERSISTENT_DATA, False)
+                
+                # NEW: Validate and sanitize loaded data
+                StateManager._sanitize_job_data(job, job_data, scene)
         except json.JSONDecodeError as e:
-            print(f"Error loading queue from text: {e}")
+            logger = logging.getLogger("RenderCue")
+            logger.error(f"Error loading queue from text: {e}")
 
     @staticmethod
     def register_handlers():
@@ -384,6 +470,120 @@ def _load_post_handler(dummy):
     bpy.app.timers.register(lambda: StateManager.load_queue_from_text(bpy.context) or None, first_interval=0.1)
 
 
+# --- Utilities ---
+
+def renumber_output_sequence(output_dir, file_pattern, start_frame, end_frame, step):
+    """Renumber output files sequentially to close gaps caused by frame steps.
+    
+    Args:
+        output_dir (str): Directory containing the rendered files.
+        file_pattern (str): Glob pattern to match files (e.g. "*.png").
+        start_frame (int): The starting frame number of the sequence.
+        end_frame (int): The ending frame number of the sequence.
+        step (int): The frame step used during rendering.
+    """
+    if step <= 1:
+        return
+
+    logger = logging.getLogger("RenderCue")
+    logger.info(f"Renumbering sequence in {output_dir}...")
+    
+    # 1. Find all matching files
+    # We need to be careful to only match files that look like frame numbers
+    # Pattern usually is Name_####.ext
+    # We'll use a regex to extract frame numbers for sorting
+    
+    files = glob.glob(os.path.join(output_dir, file_pattern))
+    if not files:
+        logger.info("No files found to renumber.")
+        return
+
+    # Regex to find the frame number at the end of the filename
+    # Matches _1234.ext or .1234.ext
+    frame_regex = re.compile(r'[._](\d+)\.\w+$')
+    
+    # Filter and sort files by frame number
+    # List of (frame_number, full_path)
+    frame_files = []
+    for f in files:
+        match = frame_regex.search(f)
+        if match:
+            frame_num = int(match.group(1))
+            # Only include frames within our render range (roughly)
+            # We allow some buffer in case of existing files, but primarily we care about the sequence order
+            frame_files.append((frame_num, f))
+            
+    # Sort by frame number
+    frame_files.sort(key=lambda x: x[0])
+    
+    if not frame_files:
+        logger.info("No matching frame files found.")
+        return
+
+    # 2. Rename sequentially
+    # We use a temp rename strategy to avoid collisions if the new names overlap with old ones
+    # (e.g. renaming 3->2 when 2 exists)
+    
+    renames = []
+    target_frame = 1 # Start from 1 for video editors, or start_frame?
+    # Usually video editors want 1, 2, 3... or start_frame, start_frame+1...
+    # Let's stick to sequential from start_frame for consistency with timeline
+    target_frame = start_frame
+    
+    # First pass: Rename to temp
+    temp_files = []
+    
+    try:
+        for frame_num, old_path in frame_files:
+            # Construct new filename
+            # We assume standard Blender naming: Name_####.ext
+            # We want to preserve the Name_ part and extension
+            
+            dirname, basename = os.path.split(old_path)
+            match = frame_regex.search(basename)
+            if not match:
+                continue
+                
+            prefix = basename[:match.start(1)] # Everything before the number
+            suffix = basename[match.end(1):]   # Everything after the number (usually empty or just extension)
+            ext = os.path.splitext(basename)[1]
+            
+            # Reconstruct new name
+            # Note: match.start(1) includes the separator (. or _) if we aren't careful
+            # The regex is [._](\d+), so group 1 is just digits.
+            # prefix will include the separator.
+            
+            new_name = f"{prefix}{target_frame:04d}{ext}" 
+            # Note: Blender might use different padding, but 4 is standard. 
+            # If original had different padding, we might want to detect it, but 4 is safe default.
+            
+            new_path = os.path.join(dirname, new_name)
+            
+            if new_path != old_path:
+                # Rename to temp
+                temp_name = f".tmp_renumber_{uuid.uuid4().hex}_{basename}"
+                # uuid not imported, use time
+                temp_name = f".tmp_renumber_{int(time.time()*1000)}_{target_frame}_{basename}"
+                temp_path = os.path.join(dirname, temp_name)
+                
+                os.replace(old_path, temp_path)
+                temp_files.append((temp_path, new_path))
+            
+            target_frame += 1
+            
+        # Second pass: Rename temp to final
+        for temp_path, new_path in temp_files:
+            os.replace(temp_path, new_path)
+            
+        logger.info(f"Successfully renumbered {len(temp_files)} files.")
+        
+    except Exception as e:
+        logger.error(f"Error during renumbering: {e}")
+        # Attempt rollback? Complex. For now just log.
+
+
+# --- Background Worker ---
+
 class BackgroundWorker:
     """Handles background rendering processes independent of the main Blender UI thread.
     
@@ -416,6 +616,7 @@ class BackgroundWorker:
         self.job_statuses = []
         self.job_progress = []
         self.job_timings = []
+        self.logger = None
         
     def load_manifest(self):
         """Load the render job manifest from disk.
@@ -436,7 +637,8 @@ class BackgroundWorker:
             
             return True
         except (OSError, json.JSONDecodeError) as e:
-            print(f"Failed to load manifest: {e}")
+            if self.logger:
+                self.logger.error(f"Failed to load manifest: {e}")
             return False
 
     def log_status(self, message, etr=DEFAULT_ETR, finished=False, error=None, **kwargs):
@@ -473,7 +675,8 @@ class BackgroundWorker:
             with open(self.status_path, 'w') as f:
                 json.dump(data, f)
         except OSError as e:
-            print(f"Failed to write status: {e}")
+            if self.logger:
+                self.logger.error(f"Failed to write status: {e}")
 
     def calculate_total_frames(self):
         """Calculate total frames to be rendered across all jobs."""
@@ -484,11 +687,14 @@ class BackgroundWorker:
             scene_name = job.get(JOB_SCENE_NAME)
             if scene_name and scene_name in bpy.data.scenes:
                 scene = bpy.data.scenes[scene_name]
-                start = job.get(JOB_FRAME_START, scene.frame_start)
-                end = job.get(JOB_FRAME_END, scene.frame_end)
+                
+                # Use scene defaults when override is disabled
                 if job.get(JOB_OVERRIDE_FRAME_RANGE):
                     start = job[JOB_FRAME_START]
                     end = job[JOB_FRAME_END]
+                else:
+                    start = scene.frame_start
+                    end = scene.frame_end
                 
                 # Determine step
                 step = scene.frame_step
@@ -557,33 +763,44 @@ class BackgroundWorker:
 
         try:
             if 'Render Result' in bpy.data.images:
-                # Store original settings
-                orig_format = scene.render.image_settings.file_format
+                img = bpy.data.images['Render Result']
                 
-                # Set to JPEG for preview
-                scene.render.image_settings.file_format = 'JPEG'
-                
-                # Save to temp file first, then atomic rename
-                temp_preview_path = preview_path + ".tmp"
-                bpy.data.images['Render Result'].save_render(filepath=temp_preview_path)
-                
-                try:
-                    os.replace(temp_preview_path, preview_path)
-                    log_debug(f"Saved preview to {preview_path}")
-                except OSError as e:
-                    log_debug(f"Atomic rename failed: {e}")
-                    # Fallback
-                    if os.path.exists(temp_preview_path):
-                        os.remove(temp_preview_path)
-                
-                # Restore
-                scene.render.image_settings.file_format = orig_format
+                # Check if image has actual pixel data
+                # Some formats (e.g., Multi-layer EXR) write directly to disk and don't populate Render Result
+                if not img.has_data or img.size[0] == 0 or img.size[1] == 0:
+                    log_debug(f"Render Result has no image data (format: {scene.render.image_settings.file_format}). Skipping preview generation.")
+                    preview_path = ""
+                else:
+                    temp_preview_path = preview_path + ".tmp"
+                    
+                    # Create temporary scene with JPEG settings to bypass format restrictions
+                    temp_scene = bpy.data.scenes.new("RenderCue_TempPreview")
+                    try:
+                        temp_scene.render.image_settings.file_format = 'JPEG'
+                        temp_scene.render.image_settings.color_mode = 'RGB'
+                        if hasattr(temp_scene.render.image_settings, 'quality'):
+                            temp_scene.render.image_settings.quality = 90
+                        
+                        # Save using temp scene settings
+                        img.save_render(filepath=temp_preview_path, scene=temp_scene)
+                        
+                        try:
+                            os.replace(temp_preview_path, preview_path)
+                            log_debug(f"Preview saved to {preview_path}")
+                        except OSError as e:
+                            log_debug(f"Atomic rename failed: {e}")
+                            if os.path.exists(temp_preview_path):
+                                os.remove(temp_preview_path)
+                    finally:
+                        # Always cleanup temp scene
+                        bpy.data.scenes.remove(temp_scene)
             else:
                 log_debug("Render Result image not found")
                 preview_path = ""
         except Exception as e:
             log_debug(f"Could not save preview: {e}")
-            print(f"Could not save preview: {e}")
+            if self.logger:
+                self.logger.warning(f"Could not save preview: {e}")
             preview_path = ""
 
         msg = f"Rendering {self.current_job_index + 1}/{self.total_jobs}: {scene.name} (Frame {scene.frame_current})"
@@ -597,9 +814,9 @@ class BackgroundWorker:
             return
 
         # Initialize Logger
-        logger = RenderCueLogger.get_logger(os.path.dirname(self.status_path))
-        logger.info(f"Starting Background Render: {self.total_jobs} jobs")
-        print(f"Starting Background Render: {self.total_jobs} jobs")
+        self.logger = RenderCueLogger.get_logger(os.path.dirname(self.status_path))
+        version_compat.log_version_info()
+        self.logger.info(f"Starting Background Render: {self.total_jobs} jobs")
         
         self.calculate_total_frames()
         self.start_time = time.time()
@@ -680,7 +897,7 @@ class BackgroundWorker:
                     scene.render.engine = target_engine
                 except (AttributeError, TypeError) as e:
                     error_msg = f"Error: Cannot set render engine to '{target_engine}': {e}. Using scene default '{current_engine}'"
-                    print(error_msg)
+                    self.logger.error(error_msg)
                     self.log_status(error_msg, error=str(e))
             
             # Camera Override (Universal)
@@ -691,9 +908,9 @@ class BackgroundWorker:
                     if camera_obj and camera_obj.type == 'CAMERA':
                         scene.camera = camera_obj
                     else:
-                        print(f"Warning: Overridden camera '{camera_name}' is invalid or not a camera.")
+                        self.logger.warning(f"Overridden camera '{camera_name}' is invalid or not a camera.")
                 else:
-                    print(f"Warning: Overridden camera '{camera_name}' not found.")
+                    self.logger.warning(f"Overridden camera '{camera_name}' not found.")
             
             # Frame Step (Universal)
             if job.get(JOB_OVERRIDE_FRAME_STEP, False):
@@ -717,7 +934,7 @@ class BackgroundWorker:
                 elif vl_name:
                      available_layers = [vl.name for vl in scene.view_layers]
                      error_msg = f"Warning: View layer '{vl_name}' not found in scene '{scene.name}'. Available layers: {', '.join(available_layers)}"
-                     print(error_msg)
+                     self.logger.warning(error_msg)
 
             if job[JOB_OVERRIDE_RESOLUTION]:
                 scene.render.resolution_percentage = job[JOB_RESOLUTION_SCALE]
@@ -728,14 +945,8 @@ class BackgroundWorker:
             if job[JOB_OVERRIDE_SAMPLES]:
                 if scene.render.engine == 'CYCLES':
                     scene.cycles.samples = job[JOB_SAMPLES]
-                elif scene.render.engine in ['BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT']:
-                    try:
-                        scene.eevee.taa_render_samples = job[JOB_SAMPLES]
-                    except AttributeError:
-                        try:
-                            scene.eevee.samples = job[JOB_SAMPLES]
-                        except AttributeError:
-                            pass
+                elif version_compat.is_eevee_engine(scene.render.engine):
+                    version_compat.set_eevee_samples(scene, job[JOB_SAMPLES])
             
             # Cycles-Only Overrides
             if scene.render.engine == 'CYCLES':
@@ -750,7 +961,7 @@ class BackgroundWorker:
                             # For now, we log if it fails but don't crash
                             pass
                         except Exception as e:
-                            print(f"Failed to set denoising: {e}")
+                            self.logger.error(f"Failed to set denoising: {e}")
                 
                 # Device (Risk #8: API Complexity)
                 if job.get(JOB_OVERRIDE_DEVICE, False):
@@ -796,13 +1007,13 @@ class BackgroundWorker:
                 # Render Frame
                 try:
                     self.log_status(f"Rendering {scene_name} (Frame {current_frame})", etr="Calculating...")
-                    print(f"Rendering frame {current_frame} to {full_path}")
+                    self.logger.info(f"Rendering frame {current_frame} to {full_path}")
                     
                     bpy.ops.render.render(write_still=True)
                     
                 except Exception as e:
                     msg = f"Error rendering {scene_name} frame {current_frame}: {str(e)}"
-                    print(msg)
+                    self.logger.error(msg)
                     self.log_status(msg, error=str(e))
                     self.job_statuses[i] = 'FAILED'
                 
@@ -811,9 +1022,26 @@ class BackgroundWorker:
             # Job Finished
             self.job_statuses[i] = 'COMPLETED'
             self.job_timings[i]['end'] = time.time()
+            
+            # Renumber Output if enabled
+            if self.manifest.get(MANIFEST_RENUMBER_OUTPUT, False) and frame_step > 1:
+                try:
+                    # Construct pattern based on scene name
+                    # We assume standard naming used in render loop: f"{scene_name}_{current_frame:04d}"
+                    pattern = f"{scene_name}_*"
+                    
+                    renumber_output_sequence(
+                        output_dir, 
+                        pattern, 
+                        frame_start, 
+                        frame_end, 
+                        frame_step
+                    )
+                except Exception as e:
+                    self.logger.error(f"Renumbering failed: {e}")
 
         self.log_status("All Jobs Completed", finished=True)
-        print("Background Render Complete")
+        self.logger.info("Background Render Complete")
 
     def check_pause(self):
         """Check for pause signal file and block execution if found."""
@@ -821,7 +1049,7 @@ class BackgroundWorker:
             pause_file = os.path.join(os.path.dirname(self.status_path), PAUSE_SIGNAL_FILENAME)
             if os.path.exists(pause_file):
                 self.log_status("Paused", etr="Paused")
-                print("Render Paused...")
+                self.logger.info("Render Paused...")
                 
                 pause_start = time.time()
                 while os.path.exists(pause_file):
@@ -830,10 +1058,11 @@ class BackgroundWorker:
                 pause_duration = time.time() - pause_start
                 self.total_paused_duration += pause_duration
                 
-                print(f"Render Resumed (Paused for {pause_duration:.1f}s)")
+                self.logger.info(f"Render Resumed (Paused for {pause_duration:.1f}s)")
                 self.log_status("Resuming...", etr="Calculating...")
         except OSError as e:
-            print(f"Pause Check Error: {e}")
+            if self.logger:
+                self.logger.error(f"Pause Check Error: {e}")
 
 def register():
     # Don't register handlers by default

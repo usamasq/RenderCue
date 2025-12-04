@@ -1,9 +1,20 @@
+"""
+RenderCue Operators Module
+
+This module defines all the Blender Operators (actions) used in the addon.
+Operators handle user interactions such as adding jobs, starting renders,
+and managing the queue.
+"""
+
 import bpy
+import logging
 import os
 import json
 from .core import StateManager
 from .constants import PAUSE_SIGNAL_FILENAME
 from .properties import get_available_renderers
+from . import ui_helpers
+from . import version_compat
 
 class RENDERCUE_OT_add_job(bpy.types.Operator):
     """Add the current active scene to the render queue."""
@@ -123,9 +134,12 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
     apply_device: bpy.props.BoolProperty(name="Device")
     apply_view_layer: bpy.props.BoolProperty(name="View Layer")
     apply_frame_step: bpy.props.BoolProperty(name="Frame Step")
+    apply_format: bpy.props.BoolProperty(name="Format")
     apply_transparent: bpy.props.BoolProperty(name="Transparent")
     apply_compositor: bpy.props.BoolProperty(name="Compositor")
     apply_denoising: bpy.props.BoolProperty(name="Denoising")
+    apply_time_limit: bpy.props.BoolProperty(name="Time Limit")
+    apply_persistent_data: bpy.props.BoolProperty(name="Persistent Data")
 
     def invoke(self, context, event):
         """Show confirmation dialog with checkboxes."""
@@ -133,19 +147,43 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
         if not settings.jobs:
             return {'CANCELLED'}
             
-        source_job = settings.jobs[settings.active_job_index]
-        
         # Reset all to False first
         for prop in self.__annotations__:
             if prop.startswith("apply_"):
                 setattr(self, prop, False)
-        
-        # Enable the one that was clicked
-        # Map data_path_bool (e.g. "override_resolution") to property name (e.g. "apply_resolution")
-        clicked_prop = self.data_path_bool.replace("override_", "apply_")
-        if hasattr(self, clicked_prop):
-            setattr(self, clicked_prop, True)
             
+        # If triggered from a specific button (data_path_bool set), pre-select ONLY that one
+        if self.data_path_bool:
+            clicked_prop = self.data_path_bool.replace("override_", "apply_")
+            if hasattr(self, clicked_prop):
+                setattr(self, clicked_prop, True)
+        else:
+            # Otherwise pre-select ALL active overrides (legacy behavior)
+            source_job = settings.jobs[settings.active_job_index]
+            
+            # Mapping: (Apply Prop, Source Bool Prop)
+            mappings = [
+                ("apply_output", "override_output"),
+                ("apply_frame_range", "override_frame_range"),
+                ("apply_resolution", "override_resolution"),
+                ("apply_samples", "override_samples"),
+                ("apply_camera", "override_camera"),
+                ("apply_engine", "override_engine"),
+                ("apply_device", "override_device"),
+                ("apply_view_layer", "override_view_layer"),
+                ("apply_frame_step", "override_frame_step"),
+                ("apply_format", "override_format"),
+                ("apply_transparent", "override_transparent"),
+                ("apply_compositor", "override_compositor"),
+                ("apply_denoising", "override_denoising"),
+                ("apply_time_limit", "override_time_limit"),
+                ("apply_persistent_data", "override_persistent_data"),
+            ]
+            
+            for apply_prop, source_bool in mappings:
+                if getattr(source_job, source_bool, False):
+                    setattr(self, apply_prop, True)
+                
         return context.window_manager.invoke_props_dialog(self, width=300)
 
     def draw(self, context):
@@ -153,7 +191,7 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
         settings = context.window_manager.rendercue
         source_job = settings.jobs[settings.active_job_index]
         
-        layout.label(text="Select overrides to apply to all jobs:", icon='DUPLICATE')
+        layout.label(text="Select overrides to apply to all jobs:", icon=version_compat.get_icon('DUPLICATE'))
         layout.separator()
         
         col = layout.column(align=True)
@@ -170,9 +208,12 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
             ("apply_device", "override_device", "Device"),
             ("apply_view_layer", "override_view_layer", "View Layer"),
             ("apply_frame_step", "override_frame_step", "Frame Step"),
+            ("apply_format", "override_format", "Format"),
             ("apply_transparent", "override_transparent", "Transparent"),
             ("apply_compositor", "override_compositor", "Compositor"),
             ("apply_denoising", "override_denoising", "Denoising"),
+            ("apply_time_limit", "override_time_limit", "Time Limit"),
+            ("apply_persistent_data", "override_persistent_data", "Persistent Data"),
         ]
         
         has_options = False
@@ -182,7 +223,7 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
                 has_options = True
                 
         if not has_options:
-            layout.label(text="No active overrides on this job.", icon='INFO')
+            layout.label(text="No active overrides on this job.", icon=version_compat.get_icon('INFO'))
 
     def execute(self, context):
         """Execute the operator."""
@@ -193,34 +234,40 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
             
         source_job = settings.jobs[settings.active_job_index]
         
-        # Mapping: Apply Prop -> (Bool Prop, Value Prop)
-        # Note: frame_range needs special handling
+        # Mapping: Apply Prop -> (Bool Prop, Value Prop, Metadata Key)
         mappings = {
-            "apply_output": ("override_output", "output_path"),
-            "apply_frame_range": ("override_frame_range", "frame_range"), # Special
-            "apply_resolution": ("override_resolution", "resolution_scale"),
-            "apply_samples": ("override_samples", "samples"),
-            "apply_camera": ("override_camera", "camera"),
-            "apply_engine": ("override_engine", "render_engine"),
-            "apply_device": ("override_device", "device"),
-            "apply_view_layer": ("override_view_layer", "view_layer"),
-            "apply_frame_step": ("override_frame_step", "frame_step"),
-            "apply_transparent": ("override_transparent", "use_transparent"),
-            "apply_compositor": ("override_compositor", "use_compositor"),
-            "apply_denoising": ("override_denoising", "use_denoising"),
+            "apply_output": ("override_output", "output_path", "output"),
+            "apply_frame_range": ("override_frame_range", "frame_range", "frame_range"),
+            "apply_resolution": ("override_resolution", "resolution_scale", "resolution"),
+            "apply_samples": ("override_samples", "samples", "samples"),
+            "apply_camera": ("override_camera", "camera", "camera"),
+            "apply_engine": ("override_engine", "render_engine", "engine"),
+            "apply_device": ("override_device", "device", "device"),
+            "apply_view_layer": ("override_view_layer", "view_layer", "view_layer"),
+            "apply_frame_step": ("override_frame_step", "frame_step", "frame_step"),
+            "apply_format": ("override_format", "render_format", "format"),
+            "apply_transparent": ("override_transparent", "film_transparent", "transparent"),
+            "apply_compositor": ("override_compositor", "use_compositor", "compositor"),
+            "apply_denoising": ("override_denoising", "use_denoising", "denoising"),
+            "apply_time_limit": ("override_time_limit", "time_limit", "time_limit"),
+            "apply_persistent_data": ("override_persistent_data", "use_persistent_data", "persistent_data"),
         }
         
         applied_count = 0
+        skipped_count = 0
         
-        for apply_prop, (bool_prop, val_prop) in mappings.items():
+        for apply_prop, (bool_prop, val_prop, meta_key) in mappings.items():
             if getattr(self, apply_prop):
-                applied_count += 1
                 
                 # Get value from source
                 override_enabled = getattr(source_job, bool_prop)
                 
-                # Special case for frame_range
-                if val_prop == "frame_range":
+                # Check metadata for smart application
+                meta = ui_helpers.OVERRIDE_METADATA.get(meta_key)
+                apply_type = meta['apply'] if meta else 'universal'
+                
+                # Special case for frame_range (value copy)
+                if meta_key == "frame_range":
                     frame_start = source_job.frame_start
                     frame_end = source_job.frame_end
                     
@@ -231,15 +278,60 @@ class RENDERCUE_OT_apply_override_to_all(bpy.types.Operator):
                             job.frame_end = frame_end
                             if job.frame_end < job.frame_start:
                                 job.frame_end = job.frame_start
+                            applied_count += 1
                 else:
                     override_value = getattr(source_job, val_prop)
+                    
                     for job in settings.jobs:
-                        setattr(job, bool_prop, override_enabled)
-                        if override_enabled:
-                            setattr(job, val_prop, override_value)
+                        # Smart Check
+                        should_apply = True
+                        if apply_type == 'smart_camera' and override_enabled:
+                            if not source_job.camera:
+                                should_apply = False
+                            elif job.scene and source_job.camera.name not in job.scene.objects:
+                                should_apply = False
+                                skipped_count += 1
+                                
+                        elif apply_type == 'smart_view_layer' and override_enabled:
+                             if job.scene and source_job.view_layer not in [vl.name for vl in job.scene.view_layers]:
+                                should_apply = False
+                                skipped_count += 1
+
+                        if should_apply:
+                            setattr(job, bool_prop, override_enabled)
+                            if override_enabled:
+                                setattr(job, val_prop, override_value)
+                            applied_count += 1
         
-        self.report({'INFO'}, f"Applied {applied_count} settings to {len(settings.jobs)} jobs")
+        msg = f"Applied settings to {applied_count} jobs"
+        if skipped_count > 0:
+            msg += f" (skipped {skipped_count} incompatible)"
+            
+        self.report({'INFO'}, msg)
         return {'FINISHED'}
+
+class RENDERCUE_OT_remove_override(bpy.types.Operator):
+    """Remove a specific override from the active job."""
+    bl_idname = "rendercue.remove_override"
+    bl_label = "Remove Override"
+    bl_description = "Remove this override from the active job"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    data_path_bool: bpy.props.StringProperty(name="Boolean Property Path")
+
+    def execute(self, context):
+        settings = context.window_manager.rendercue
+        if not settings.jobs or settings.active_job_index < 0:
+            return {'CANCELLED'}
+            
+        job = settings.jobs[settings.active_job_index]
+        
+        if hasattr(job, self.data_path_bool):
+            setattr(job, self.data_path_bool, False)
+            self.report({'INFO'}, "Override removed")
+            return {'FINISHED'}
+            
+        return {'CANCELLED'}
 
 class RENDERCUE_OT_open_output_folder(bpy.types.Operator):
     """Open the global output directory in the OS file explorer."""
@@ -270,6 +362,12 @@ class RENDERCUE_OT_validate_queue(bpy.types.Operator):
         settings = context.window_manager.rendercue
         errors = []
         
+        # Check File Status
+        if not bpy.data.filepath:
+            errors.append("Blender file has not been saved. Please save first.")
+        elif bpy.data.is_dirty:
+            self.report({'WARNING'}, "File has unsaved changes. Background render uses saved file.")
+
         # Check Output Path
         if not settings.global_output_path:
             errors.append("Global Output Path is empty")
@@ -526,7 +624,7 @@ class RENDERCUE_OT_stop_render(bpy.types.Operator):
                 pcoll = ui.preview_collections["main"]
                 pcoll.clear()
         except Exception as e:
-            print(f"Error clearing preview: {e}")
+            logging.getLogger("RenderCue").warning(f"Error clearing preview: {e}")
         
         self.report({'INFO'}, "Stopping render... (Progress will be cleared on next render)")
         return {'FINISHED'}
@@ -592,6 +690,156 @@ class RENDERCUE_OT_browse_path(bpy.types.Operator):
         context.window_manager.fileselect_add(self)
         return {'RUNNING_MODAL'}
 
+
+
+class RENDERCUE_OT_confirm_render(bpy.types.Operator):
+    """Show pre-render confirmation dialog with job details and validation"""
+    bl_idname = "rendercue.confirm_render"
+    bl_label = "Confirm Render Queue"
+    bl_options = {'INTERNAL'}
+    
+    # Store validation results
+    warnings = []
+    errors = []
+    
+    def invoke(self, context, event):
+        settings = context.window_manager.rendercue
+        if not settings.jobs:
+            self.report({'WARNING'}, "Queue is empty")
+            return {'CANCELLED'}
+            
+        # Run validation first
+        self.warnings, self.errors = ui_helpers.validate_queue_for_render(context)
+        
+        # Show dialog (wide width for better readability)
+        return context.window_manager.invoke_props_dialog(self, width=650)
+    
+    def draw(self, context):
+        layout = self.layout
+        settings = context.window_manager.rendercue
+        
+        # === HEADER: Queue Summary ===
+        summary = ui_helpers.get_queue_summary(context)
+        
+        # Clean summary box
+        box = layout.box()
+        
+        # Title & File Status
+        row = box.row()
+        row.label(text="Queue Summary", icon=version_compat.get_icon('PROPERTIES'))
+        
+        file_icon = 'FILE_TICK' if summary['is_saved'] and not summary['is_dirty'] else 'FILE_BACKUP'
+        sub = row.row()
+        sub.alignment = 'RIGHT'
+        sub.label(text=summary['filename'], icon=version_compat.get_icon(file_icon))
+        
+        # Stats Split
+        split = box.split(factor=0.5)
+        
+        col = split.column()
+        col.label(text=f"Total Jobs: {summary['total_jobs']}")
+        
+        col = split.column()
+        col.label(text=f"Est. Frames: {summary['total_frames']}")
+        
+        if summary['is_dirty']:
+            row = box.row()
+            row.alert = True
+            row.label(text="File has unsaved changes (will be saved automatically)", icon=version_compat.get_icon('INFO'))
+            
+        layout.separator()
+        
+        # === JOB LIST ===
+        layout.label(text="Jobs to Render:", icon=version_compat.get_icon('OUTLINER_COLLECTION'))
+        
+        jobs_box = layout.box()
+        
+        if not settings.jobs:
+             jobs_box.label(text="Queue is empty!", icon=version_compat.get_icon('ERROR'))
+        
+        for i, job in enumerate(settings.jobs):
+            details = ui_helpers.get_job_confirmation_details(job)
+            
+            # Job Container
+            job_col = jobs_box.column(align=True)
+            job_box = job_col.box()
+            
+            # Header
+            header = job_box.row()
+            icon = 'CHECKMARK' if details['is_valid'] else 'ERROR'
+            if job.render_status == 'COMPLETED': icon = 'FILE_TICK'
+            
+            header.label(text=f"{i+1}. {details['scene_name']}", icon=version_compat.get_icon(icon))
+            
+            # Details Column
+            content = job_box.column(align=True)
+            content.scale_y = 0.9 # Slightly compact
+            
+            # Row 1: Camera & Engine
+            row = content.row()
+            row.label(text=f"Camera: {details['camera_display']}")
+            row.label(text=f"Engine: {details['engine_display']}")
+            
+            # Row 2: Resolution & Range
+            row = content.row()
+            row.label(text=f"Res: {details['resolution_display']}")
+            row.label(text=f"Frames: {details['range_display']} ({details['frames_display']})")
+            
+            # Overrides Indicator
+            if details['has_overrides']:
+                row = content.row()
+                row.label(text=f"Overrides: {', '.join(details['override_names'])}", icon=version_compat.get_icon('MODIFIER'))
+
+        layout.separator()
+        
+        # === VALIDATION STATUS ===
+        if self.errors or self.warnings:
+            val_box = layout.box()
+            
+            if self.errors:
+                row = val_box.row()
+                row.alert = True
+                row.label(text=f"{len(self.errors)} Errors (Must Fix):", icon=version_compat.get_icon('ERROR'))
+                
+                col = val_box.column()
+                col.alert = True
+                for err in self.errors:
+                    col.label(text=f"• {err}")
+                val_box.separator()
+                
+            if self.warnings:
+                val_box.label(text="Warnings:", icon=version_compat.get_icon('INFO'))
+                col = val_box.column()
+                for warn in self.warnings:
+                    col.label(text=f"• {warn}")
+        else:
+            row = layout.row()
+            row.alignment = 'CENTER'
+            row.label(text="All checks passed. Ready to render.", icon=version_compat.get_icon('CHECKMARK'))
+            
+        layout.separator()
+        
+
+    
+    def execute(self, context):
+        if self.errors:
+             self.report({'ERROR'}, "Cannot start render with errors")
+             return {'CANCELLED'}
+
+        # Save file if dirty
+        if bpy.data.is_dirty:
+            try:
+                bpy.ops.wm.save_mainfile()
+                self.report({'INFO'}, "File saved")
+            except Exception as e:
+                self.report({'ERROR'}, f"Failed to save: {e}")
+                return {'CANCELLED'}
+        
+        # Call the actual render operator
+        bpy.ops.rendercue.batch_render('INVOKE_DEFAULT')
+        return {'FINISHED'}
+
+
 class RENDERCUE_OT_show_summary_popup(bpy.types.Operator):
     """Show a modal popup with render summary."""
     bl_idname = "rendercue.show_summary_popup"
@@ -600,6 +848,7 @@ class RENDERCUE_OT_show_summary_popup(bpy.types.Operator):
     bl_options = {'INTERNAL'}
     
     def invoke(self, context, event):
+        # Use invoke_props_dialog for proper dialog closure
         return context.window_manager.invoke_props_dialog(self, width=400)
         
     def draw(self, context):
@@ -608,7 +857,7 @@ class RENDERCUE_OT_show_summary_popup(bpy.types.Operator):
         
         # Title
         row = layout.row()
-        row.label(text="Render Job Completed", icon='CHECKMARK')
+        row.label(text="Render Job Completed", icon=version_compat.get_icon('CHECKMARK'))
         
         layout.separator()
         
@@ -631,15 +880,17 @@ class RENDERCUE_OT_show_summary_popup(bpy.types.Operator):
         if settings.summary_failed_jobs > 0:
             row = col.row()
             row.alert = True
-            row.label(text=f"Failed: {settings.summary_failed_jobs}", icon='ERROR')
+            row.label(text=f"Failed: {settings.summary_failed_jobs}", icon=version_compat.get_icon('ERROR'))
             
         layout.separator()
         
-        # Actions
+        # Prompt
         row = layout.row()
-        row.operator("rendercue.open_output_folder", icon='FILE_FOLDER', text="Open Output Folder")
+        row.alignment = 'CENTER'
+        row.label(text="Open output folder?", icon=version_compat.get_icon('FILE_FOLDER'))
         
     def execute(self, context):
+        bpy.ops.rendercue.open_output_folder()
         return {'FINISHED'}
 
 class RENDERCUE_OT_clear_status(bpy.types.Operator):
@@ -672,6 +923,7 @@ classes = (
     RENDERCUE_OT_move_job,
     RENDERCUE_OT_populate_all,
     RENDERCUE_OT_apply_override_to_all,
+    RENDERCUE_OT_remove_override,
     RENDERCUE_OT_open_output_folder,
     RENDERCUE_OT_validate_queue,
     RENDERCUE_OT_save_preset,
@@ -684,7 +936,10 @@ classes = (
     RENDERCUE_OT_browse_path,
     RENDERCUE_OT_load_data,
     RENDERCUE_OT_show_summary_popup,
+
     RENDERCUE_OT_clear_status,
+    RENDERCUE_OT_confirm_render,
+
 )
 
 def register():

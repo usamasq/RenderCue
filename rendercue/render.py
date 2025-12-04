@@ -1,4 +1,16 @@
+"""
+RenderCue Render Module
+
+This module handles the background rendering process.
+It defines the `RENDERCUE_OT_batch_render` operator which:
+- Prepares the render queue manifest
+- Spawns a background Blender process
+- Monitors progress via status files
+- Updates the UI and preview images
+"""
+
 import bpy
+import logging
 import os
 import time
 import json
@@ -163,9 +175,12 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         self._last_preview_path = None
         self._last_finished_frames = -1
             
-        if not bpy.data.is_saved:
-            self.report({'ERROR'}, "Save the file before background rendering")
+        if not bpy.data.filepath:
+            self.report({'ERROR'}, "Please save the file before rendering")
             return {'CANCELLED'}
+            
+        # Note: File save is now handled by confirm dialog (RENDERCUE_OT_confirm_render.execute())
+        # We only check if file exists here.
             
         # Clear completion data from previous render
         # (This gives fresh start when user clicks Render again)
@@ -186,7 +201,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                 pcoll = ui.preview_collections["main"]
                 pcoll.clear()
         except Exception as e:
-            print(f"Error clearing preview: {e}")
+            logging.getLogger("RenderCue").warning(f"Error clearing preview: {e}")
             
         # Setup Paths
         temp_dir = bpy.app.tempdir
@@ -198,7 +213,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         if os.path.exists(pause_file):
             try:
                 os.remove(pause_file)
-                print("RenderCue: Cleaned up stale pause signal")
+                logging.getLogger("RenderCue").info("Cleaned up stale pause signal")
             except OSError:
                 pass
         
@@ -291,13 +306,8 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             
             # Handle Completion Feedback (Popup)
             # Status bar is handled automatically by UI drawing based on timestamp
-            prefs = context.preferences.addons[__package__].preferences
-            
-            if prefs.show_completion_popup:
-                # Trigger popup
-                # We use a timer to defer this call slightly to ensure we are out of the modal loop context if needed,
-                # but usually calling INVOKE_DEFAULT works.
-                bpy.ops.rendercue.show_summary_popup('INVOKE_DEFAULT')
+            # Popup always appears - user can dismiss manually
+            bpy.ops.rendercue.show_summary_popup('INVOKE_DEFAULT')
 
         # Desktop Notification
         if prefs.show_notifications:
@@ -366,10 +376,10 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                     keys_to_remove = [k for k in pcoll.keys() if k != current_key and k.startswith('thumbnail_')]
                     for key in keys_to_remove:
                         del pcoll[key]
-                    print(f"RenderCue: Cleaned up {len(keys_to_remove)} old preview thumbnails")
+                    logging.getLogger("RenderCue").debug(f"Cleaned up {len(keys_to_remove)} old preview thumbnails")
                     
         except Exception as e:
-            print(f"Preview Collection Error: {e}")
+            logging.getLogger("RenderCue").error(f"Preview Collection Error: {e}")
         
         # Force UI redraw
         for window in context.window_manager.windows:

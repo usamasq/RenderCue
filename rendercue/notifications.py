@@ -1,4 +1,14 @@
+"""
+RenderCue Notifications Module
+
+This module handles user notifications via:
+- Blender Info Area (Console)
+- Native OS Toasts (Windows only)
+- Webhooks (Discord/Slack)
+"""
+
 import json
+import logging
 import subprocess
 import sys
 import bpy
@@ -20,7 +30,7 @@ def send_webhook(url, message, title="RenderCue Notification", color=0x00ff00):
     # Check for Online Access preference
     try:
         if not bpy.context.preferences.system.use_online_access:
-            print("RenderCue: Online Access disabled in preferences. Skipping webhook.")
+            logging.getLogger("RenderCue").info("Online Access disabled in preferences. Skipping webhook.")
             return
     except AttributeError:
         # Older Blender versions may not have this attribute
@@ -66,7 +76,7 @@ except Exception:
         # Use bpy.app.python_args to ensure compatibility with Blender's Python setup
         subprocess.Popen([sys.executable, *bpy.app.python_args, "-c", script])
     except (OSError, ValueError) as e:
-        print(f"RenderCue: Failed to trigger webhook subprocess: {e}")
+        logging.getLogger("RenderCue").error(f"Failed to trigger webhook subprocess: {e}")
 
 def show_notification(title, message):
     """Show a notification using the best available method for the platform.
@@ -98,10 +108,11 @@ def _show_blender_notification(title, message):
         # Show in Blender's info panel
         # bpy.ops.wm.console_toggle()  # Removed disruptive toggle
         # bpy.ops.wm.console_toggle()  # Removed disruptive toggle
-        print(f"[RenderCue] {full_message}")
+        # bpy.ops.wm.console_toggle()  # Removed disruptive toggle
+        logging.getLogger("RenderCue").info(f"{full_message}")
     except (AttributeError, RuntimeError):
         # Fallback to simple print
-        print(f"[RenderCue] {title}: {message}")
+        logging.getLogger("RenderCue").info(f"{title}: {message}")
 
 def _show_windows_toast(title, message):
     """Show a native Windows toast notification using PowerShell.
@@ -135,7 +146,7 @@ def _show_windows_toast(title, message):
             creationflags=subprocess.CREATE_NO_WINDOW if hasattr(subprocess, 'CREATE_NO_WINDOW') else 0
         )
     except (OSError, ValueError, FileNotFoundError) as e:
-        print(f"RenderCue: Failed to show Windows toast notification: {e}")
+        logging.getLogger("RenderCue").warning(f"Failed to show Windows toast notification: {e}")
 
 # Backward compatibility alias
 show_toast = show_notification

@@ -34,6 +34,7 @@ DEFAULT_PROGRESS_MESSAGE = "Rendering..."
 MANIFEST_JOBS = "jobs"
 MANIFEST_GLOBAL_OUTPUT = "global_output_path"
 MANIFEST_OUTPUT_LOCATION = "output_location"
+MANIFEST_RENUMBER_OUTPUT = "renumber_output"
 
 # Job Keys
 JOB_SCENE_NAME = "scene_name"

@@ -1,7 +1,7 @@
 schema_version = "1.0.0"
 
 id = "rendercue"
-version = "1.0.2"
+version = "1.1.0"
 name = "RenderCue"
 tagline = "Sequence. Queue. Render"
 maintainer = "Usama Bin Shahid"
@@ -10,7 +10,7 @@ license = ["SPDX:GPL-3.0-or-later"]
 website = "https://github.com/usamasq/RenderCue"
 tags = ["Render", "Pipeline"]
 
-blender_version_min = "4.2.0"
+blender_version_min = "3.0.0"
 
 # Permissions
 [permissions]

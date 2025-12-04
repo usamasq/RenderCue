@@ -1,3 +1,13 @@
+"""
+RenderCue UI Module
+
+This module defines the user interface for the RenderCue addon, including:
+- Panels (Render Properties, 3D Viewport)
+- UI Lists (Job Queue)
+- Menus (Presets, Context Menus)
+- Drawing functions for custom UI elements (Dashboard, Status Bar)
+"""
+
 import bpy
 import bpy.utils.previews
 import os
@@ -8,6 +18,7 @@ from .constants import (
     UI_PREVIEW_COLLECTION_KEY, UI_STATUS_ICONS
 )
 from . import ui_helpers
+from . import version_compat
 
 preview_collections = {}
 
@@ -16,7 +27,7 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
     def draw_item(self, context, layout, data, item, icon, active_data, active_propname, index):
         # item is RenderCueJob
         if not item.scene:
-            layout.label(text="<Missing Scene>", icon='ERROR')
+            layout.label(text="<Missing Scene>", icon=version_compat.get_icon('ERROR'))
             return
 
         # Status icon (from constant mapping)
@@ -32,13 +43,13 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
             row.active = True  # Highlight completed
             
         # Status icon
-        row.label(text="", icon=status_icon)
+        row.label(text="", icon=version_compat.get_icon(status_icon))
         
         # Scene Name
         row.label(text=item.scene.name, translate=False)
         
         # Switch Scene Button
-        op = row.operator("rendercue.switch_to_job_scene", text="", icon='VIEW3D')
+        op = row.operator("rendercue.switch_to_job_scene", text="", icon=version_compat.get_icon('VIEW3D'))
         op.index = index
         
         # Override Indicators (Visual feedback)
@@ -46,13 +57,13 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
         sub.scale_x = 0.8
         
         if item.override_output:
-            sub.label(icon='FILE_FOLDER')
+            sub.label(icon=version_compat.get_icon('FILE_FOLDER'))
         if item.override_frame_range:
-            sub.label(icon='TIME')
+            sub.label(icon=version_compat.get_icon('TIME'))
         if item.override_format:
-            sub.label(icon='IMAGE_DATA')
+            sub.label(icon=version_compat.get_icon('IMAGE_DATA'))
         if item.override_view_layer:
-            sub.label(icon='RENDERLAYERS')
+            sub.label(icon=version_compat.get_icon('RENDERLAYERS'))
             
         # Renderer Info
         # Check for override first
@@ -61,17 +72,17 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
         else:
             r_engine = item.scene.render.engine
             
-        icon_engine = 'SHADING_RENDERED'
+        icon_engine = version_compat.get_icon('SHADING_RENDERED')
         engine_name = r_engine
         
         if r_engine == 'CYCLES':
-            icon_engine = 'PMARKER_ACT'
+            icon_engine = version_compat.get_icon('PMARKER_ACT')
             engine_name = "Cycles"
-        elif r_engine in ('BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'):
-            icon_engine = 'LIGHT_SUN'
-            engine_name = "Eevee"
+        elif version_compat.is_eevee_engine(r_engine):
+            icon_engine = version_compat.get_icon('LIGHT_SUN')
+            engine_name = version_compat.get_engine_display_name(r_engine)
         elif r_engine == 'BLENDER_WORKBENCH':
-            icon_engine = 'SHADING_SOLID'
+            icon_engine = version_compat.get_icon('SHADING_SOLID')
             engine_name = "Workbench"
             
         row.label(text=engine_name, icon=icon_engine)
@@ -90,7 +101,7 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
         final_y = int(res_y * safe_scale / UI_RESOLUTION_PERCENTAGE_BASE)
         
         if item.override_resolution:
-            row.label(text=f"{final_x}x{final_y}", icon='MODIFIER')
+            row.label(text=f"{final_x}x{final_y}", icon=version_compat.get_icon('MODIFIER'))
         else:
             row.label(text=f"{final_x}x{final_y}")
             
@@ -104,17 +115,11 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
             # Get scene samples
             if r_engine == 'CYCLES':
                 samples = item.scene.cycles.samples
-            elif r_engine in ('BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'):
-                try:
-                    samples = item.scene.eevee.taa_render_samples
-                except AttributeError:
-                    try:
-                        samples = item.scene.eevee.samples
-                    except AttributeError:
-                        samples = 0
+            elif version_compat.is_eevee_engine(r_engine):
+                samples = version_compat.get_eevee_samples(item.scene)
         
         if item.override_samples:
-            row.label(text=f"Samples: {samples}", icon='MODIFIER')
+            row.label(text=f"Samples: {samples}", icon=version_compat.get_icon('MODIFIER'))
         else:
             row.label(text=f"Samples: {samples}")
 
@@ -140,7 +145,7 @@ def draw_queue_health_panel(layout, context):
         header.scale_y = 0.9
         header.label(
             text=f"{len(validation['errors'])} Critical Issue(s)",
-            icon='CANCEL'
+            icon=version_compat.get_icon('CANCEL')
         )
         
         # Show first 2 errors (HIG: Clarity)
@@ -159,7 +164,7 @@ def draw_queue_health_panel(layout, context):
         row = health_box.row()
         row.operator(
             "rendercue.validate_queue",
-            icon='CHECKMARK',
+            icon=version_compat.get_icon('CHECKMARK'),
             text="View All Issues"
         )
         
@@ -169,7 +174,7 @@ def draw_queue_health_panel(layout, context):
         header.scale_y = 0.9
         header.label(
             text=f"{len(validation['warnings'])} Warning(s)",
-            icon='INFO'
+            icon=version_compat.get_icon('INFO')
         )
         # Orange tint for warnings
         sub = header.row()
@@ -191,7 +196,7 @@ def draw_queue_health_panel(layout, context):
     else:
         row = health_box.row()
         row.enabled = False
-        row.label(text="Queue Ready", icon='CHECKMARK')
+        row.label(text="Queue Ready", icon=version_compat.get_icon('CHECKMARK'))
 
 class RenderCuePanelMixin:
     """Mixin class for shared panel drawing logic."""
@@ -227,7 +232,7 @@ class RenderCuePanelMixin:
         
         # Header
         header = box.row()
-        header.label(text="Rendering in Progress", icon='RENDER_ANIMATION')
+        header.label(text="Rendering in Progress", icon=version_compat.get_icon('RENDER_ANIMATION'))
         
         # Overall Stats
         stats_box = box.box()
@@ -260,14 +265,14 @@ class RenderCuePanelMixin:
         box.separator(factor=0.5)
         msg_row = box.row()
         msg_row.scale_y = 0.8
-        msg_row.label(text=settings.progress_message, icon='INFO')
+        msg_row.label(text=settings.progress_message, icon=version_compat.get_icon('INFO'))
         
         # Queue Preview (COLLAPSIBLE)
         box.separator()
         queue_header = box.row()
         queue_header.prop(settings, "show_queue_preview", 
                          text="Queue Status", 
-                         icon='TRIA_DOWN' if settings.show_queue_preview else 'TRIA_RIGHT',
+                         icon=version_compat.get_icon('TRIA_DOWN') if settings.show_queue_preview else version_compat.get_icon('TRIA_RIGHT'),
                          emboss=False)
         
         if settings.show_queue_preview:
@@ -279,7 +284,7 @@ class RenderCuePanelMixin:
             thumb_header = box.row()
             thumb_header.prop(settings, "show_preview_thumbnail",
                             text="Last Frame",
-                            icon='TRIA_DOWN' if settings.show_preview_thumbnail else 'TRIA_RIGHT',
+                            icon=version_compat.get_icon('TRIA_DOWN') if settings.show_preview_thumbnail else version_compat.get_icon('TRIA_RIGHT'),
                             emboss=False)
             
             if settings.show_preview_thumbnail:
@@ -299,11 +304,11 @@ class RenderCuePanelMixin:
         controls.scale_y = 1.5
         
         if settings.is_paused:
-            controls.operator("rendercue.resume_render", icon='PLAY', text="Resume")
+            controls.operator("rendercue.resume_render", icon=version_compat.get_icon('PLAY'), text="Resume")
         else:
-            controls.operator("rendercue.pause_render", icon='PAUSE', text="Pause")
+            controls.operator("rendercue.pause_render", icon=version_compat.get_icon('PAUSE'), text="Pause")
         
-        controls.operator("rendercue.stop_render", icon='CANCEL', text="Stop")
+        controls.operator("rendercue.stop_render", icon=version_compat.get_icon('CANCEL'), text="Stop")
     
     def draw_queue_preview(self, layout, settings, context):
         """Draw mini queue list (SMART TRUNCATION)."""
@@ -321,7 +326,7 @@ class RenderCuePanelMixin:
         if start_idx > 0:
             row = queue_box.row()
             row.scale_y = 0.7
-            row.label(text=f"... {start_idx} jobs before", icon='THREE_DOTS')
+            row.label(text=f"... {start_idx} jobs before", icon=version_compat.get_icon('THREE_DOTS'))
         
         # Show job range
         for idx in range(start_idx, end_idx):
@@ -342,7 +347,7 @@ class RenderCuePanelMixin:
             if idx == current_idx:
                 row.active = True
             
-            row.label(text="", icon=status_icon)
+            row.label(text="", icon=version_compat.get_icon(status_icon))
             
             # Job name (truncated)
             if job.scene:
@@ -358,16 +363,16 @@ class RenderCuePanelMixin:
                 pct = (job.completed_frames / job.total_frames) * 100
                 row.label(text=f"{pct:.0f}%")
             elif job.render_status == 'COMPLETED':
-                row.label(text="", icon='CHECKMARK')
+                row.label(text="", icon=version_compat.get_icon('CHECKMARK'))
             elif job.render_status == 'FAILED':
-                row.label(text="", icon='ERROR')
+                row.label(text="", icon=version_compat.get_icon('ERROR'))
         
         # Show "..." if truncated at end
         remaining = total_jobs - end_idx
         if remaining > 0:
             row = queue_box.row()
             row.scale_y = 0.7
-            row.label(text=f"... {remaining} jobs after", icon='THREE_DOTS')
+            row.label(text=f"... {remaining} jobs after", icon=version_compat.get_icon('THREE_DOTS'))
 
     def draw_main_ui(self, layout, settings, context):
         """Draw the main configuration UI."""
@@ -376,19 +381,19 @@ class RenderCuePanelMixin:
             # Subtle notification row instead of box
             row = layout.row(align=True)
             row.alignment = 'CENTER'
-            row.label(text="Saved queue data found", icon='INFO')
-            row.operator("rendercue.load_data", icon='IMPORT', text="Load")
+            row.label(text="Saved queue data found", icon=version_compat.get_icon('INFO'))
+            row.operator("rendercue.load_data", icon=version_compat.get_icon('IMPORT'), text="Load")
             
         row = layout.row()
         row.template_list("RENDER_UL_render_cue_jobs", "", settings, "jobs", settings, "active_job_index")
         
         # Side buttons for list
         col = row.column(align=True)
-        col.operator("rendercue.add_job", icon='ADD', text="")
-        col.operator("rendercue.remove_job", icon='REMOVE', text="")
+        col.operator("rendercue.add_job", icon=version_compat.get_icon('ADD'), text="")
+        col.operator("rendercue.remove_job", icon=version_compat.get_icon('REMOVE'), text="")
         col.separator()
-        col.operator("rendercue.move_job", icon='TRIA_UP', text="").direction = 'UP'
-        col.operator("rendercue.move_job", icon='TRIA_DOWN', text="").direction = 'DOWN'
+        col.operator("rendercue.move_job", icon=version_compat.get_icon('TRIA_UP'), text="").direction = 'UP'
+        col.operator("rendercue.move_job", icon=version_compat.get_icon('TRIA_DOWN'), text="").direction = 'DOWN'
         
         if not settings.jobs:
             # Helper message for empty state
@@ -412,15 +417,15 @@ class RenderCuePanelMixin:
         
         if stats['total'] == 0:
             info_row.enabled = False
-            info_row.label(text="No scenes in file", icon='INFO')
+            info_row.label(text="No scenes in file", icon=version_compat.get_icon('INFO'))
         elif stats['available'] > 0:
-            info_row.label(text=f"{stats['available']} scene(s) can be added", icon='ADD')
+            info_row.label(text=f"{stats['available']} scene(s) can be added", icon=version_compat.get_icon('ADD'))
         elif stats['with_cameras'] == 0:
             info_row.alert = True
-            info_row.label(text="No scenes have cameras assigned", icon='ERROR')
+            info_row.label(text="No scenes have cameras assigned", icon=version_compat.get_icon('ERROR'))
         else:
             info_row.enabled = False
-            info_row.label(text="All scenes with cameras in queue", icon='CHECKMARK')
+            info_row.label(text="All scenes with cameras in queue", icon=version_compat.get_icon('CHECKMARK'))
 
         row = layout.row(align=True)
         row.scale_y = 1.2
@@ -429,7 +434,7 @@ class RenderCuePanelMixin:
         if stats['available'] > 0:
             btn_text = f"Add All Scenes ({stats['available']})"
             
-        row.operator("rendercue.populate_all", icon='SCENE_DATA', text=btn_text)
+        row.operator("rendercue.populate_all", icon=version_compat.get_icon('SCENE_DATA'), text=btn_text)
         
         # Check for mixed engines
         warning = ui_helpers.get_mixed_engine_warning(settings)
@@ -439,12 +444,12 @@ class RenderCuePanelMixin:
         
         if warning:
             # Informational only - mixed engines is a valid choice
-            warn_row.label(text=warning, icon='INFO')
+            warn_row.label(text=warning, icon=version_compat.get_icon('INFO'))
         else:
             warn_row.enabled = False
-            warn_row.label(text="All jobs use same engine", icon='CHECKMARK')
+            warn_row.label(text="All jobs use same engine", icon=version_compat.get_icon('CHECKMARK'))
 
-        row.menu("RENDERCUE_MT_presets_menu", icon='PRESET', text="Presets")
+        row.menu("RENDERCUE_MT_presets_menu", icon=version_compat.get_icon('PRESET'), text="Presets")
         
         layout.separator()
         
@@ -460,8 +465,8 @@ class RenderCuePanelMixin:
         left.alignment = 'LEFT'
         left.prop(
             settings, 
-            "ui_show_output", 
-            icon='TRIA_DOWN' if settings.ui_show_output else 'TRIA_RIGHT',
+            "ui_show_global_output", 
+            icon=version_compat.get_icon('TRIA_DOWN') if settings.ui_show_global_output else version_compat.get_icon('TRIA_RIGHT'),
             text="Global Output",
             emboss=False
         )
@@ -469,9 +474,9 @@ class RenderCuePanelMixin:
         # Right: Icon
         right = split.row(align=True)
         right.alignment = 'RIGHT'
-        right.label(text="", icon='FILE_FOLDER')
+        right.label(text="", icon=version_compat.get_icon('FILE_FOLDER'))
         
-        if settings.ui_show_output:
+        if settings.ui_show_global_output:
             col = box.column(align=True)
             col.use_property_split = True
             col.use_property_decorate = False
@@ -484,7 +489,7 @@ class RenderCuePanelMixin:
                 row = col.row(align=True)
                 row.prop(settings, "global_output_path", text="Path")
                 # Browse Button
-                op = row.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
+                op = row.operator("rendercue.browse_path", icon=version_compat.get_icon('FILE_FOLDER'), text="")
                 op.target_property = "global_output_path"
                 
             # Visual Path Preview
@@ -496,9 +501,9 @@ class RenderCuePanelMixin:
             row.alignment = 'LEFT'
             
             if settings.output_location == 'DEFAULT':
-                row.label(text="Path: // [Scene Name] /", icon='FILE_BLEND')
+                row.label(text="Path: // [Scene Name] /", icon=version_compat.get_icon('FILE_BLEND'))
             else:
-                row.label(text="Path: [Custom] / [Scene Name] /", icon='FILE_FOLDER')
+                row.label(text="Path: [Custom] / [Scene Name] /", icon=version_compat.get_icon('FILE_FOLDER'))
         
         # Selected Job Settings (Overrides)
         if settings.jobs:
@@ -512,7 +517,7 @@ class RenderCuePanelMixin:
             box = layout.box()
             
             # Header
-            override_info = ui_helpers.get_override_summary(job)
+            override_info = ui_helpers.get_override_summary(context, job)
             row = box.row(align=True)
             
             # Split Header
@@ -529,7 +534,7 @@ class RenderCuePanelMixin:
             left.prop(
                 settings,
                 "ui_show_overrides_main",
-                icon='TRIA_DOWN' if settings.ui_show_overrides_main else 'TRIA_RIGHT',
+                icon=version_compat.get_icon('TRIA_DOWN') if settings.ui_show_overrides_main else version_compat.get_icon('TRIA_RIGHT'),
                 text=header_text,
                 emboss=False
             )
@@ -537,46 +542,91 @@ class RenderCuePanelMixin:
             # Right: Icon
             right = split.row(align=True)
             right.alignment = 'RIGHT'
-            right.label(text="", icon='MODIFIER')
+            right.label(text="", icon=version_compat.get_icon('MODIFIER'))
 
             if settings.ui_show_overrides_main:
                 # Collapsible Summary (Dashboard)
-                # Always show summary box to prevent layout shift
-                summary_box = box.box()
-                summary_header = summary_box.row()
-                
                 if override_info['count'] > 0:
+                    summary_box = box.box()
+                    summary_header = summary_box.row()
+                
                     summary_header.prop(
                         settings,
                         "ui_show_override_summary",
-                        icon='TRIA_DOWN' if settings.ui_show_override_summary else 'TRIA_RIGHT',
+                        icon=version_compat.get_icon('TRIA_DOWN') if settings.ui_show_override_summary else version_compat.get_icon('TRIA_RIGHT'),
                         text=f"Active Overrides ({override_info['count']})",
                         emboss=False
                     )
                     
                     if settings.ui_show_override_summary:
                         summary_col = summary_box.column(align=True)
-                        # Removed scale_y reduction for better spacing
                         
-                        for name, value, bool_prop, val_prop in override_info['overrides']:
-                            row = summary_col.row(align=True)
+                        for group in override_info['groups']:
+                            # Add spacing before each group (except first)
+                            if group != override_info['groups'][0]:
+                                summary_col.separator(factor=1.5)
+
+                            # Group Header
+                            group_row = summary_col.row(align=True)
+                            group_row.label(text=group['name'], icon=version_compat.get_icon(group['icon']))
                             
-                            # Split Layout: Label (40%) | Value (30%) | Button (30%)
-                            split = row.split(factor=0.4)
-                            split.label(text=name, icon='DOT')
+                            # Group Items
+                            for override in group['overrides']:
+                                row = summary_col.row(align=True)
+                                
+                                # Split Layout: Close (10%) | Label (35%) | Value (30%) | Apply (25%)
+                                # Close button first
+                                close_split = row.split(factor=0.1, align=True)
+                                
+                                # Remove Button (leftmost)
+                                op = close_split.operator("rendercue.remove_override", text="", icon=version_compat.get_icon('X'))
+                                op.data_path_bool = override['bool_prop']
+                                
+                                # Rest of the content
+                                content_split = close_split.split(factor=0.35, align=True)
+                                
+                                # Label with slight indent
+                                sub = content_split.row()
+                                sub.separator(factor=0.5)
+                                sub.label(text=override['display_name'])
+                                
+                                # Value & Apply Button
+                                value_apply_split = content_split.split(factor=0.5, align=True)
+                                value_apply_split.label(text=override['value'])
+                                
+                                # Apply Button (rightmost)
+                                btns = value_apply_split.row(align=True)
+                                btns.alignment = 'RIGHT'
+                                
+                                if override['can_apply']:
+                                    applicable, total = override['apply_stats']
+                                    if applicable == total:
+                                        btn_text = "Apply to All"
+                                    else:
+                                        btn_text = f"Apply ({applicable}/{total})"
+                                        
+                                    op = btns.operator("rendercue.apply_override_to_all", text=btn_text, icon=version_compat.get_icon('DUPLICATE'))
+                                    op.data_path_bool = override['bool_prop']
+                                    op.data_path_val = override['val_prop']
+                                    
+                        # Queue Health Integration
+                        validation = ui_helpers.get_queue_validation_summary(context)
+                        if validation['errors'] or validation['warnings']:
+                            summary_col.separator()
+                            health_row = summary_col.row()
+                            health_row.scale_y = 0.8
                             
-                            sub = split.split(factor=0.5)
-                            sub.label(text=value)
-                            
-                            # Apply to All Button
-                            op = sub.operator("rendercue.apply_override_to_all", text="Apply to All", icon='DUPLICATE')
-                            op.data_path_bool = bool_prop
-                            op.data_path_val = val_prop
-                else:
-                    # Show empty state (dimmed, no collapse icon)
-                    row = summary_header.row()
-                    row.enabled = False
-                    row.label(text="No Active Overrides", icon='INFO')
+                            if validation['errors']:
+                                health_row.alert = True
+                                health_row.label(
+                                    text=f"⚠ {len(validation['errors'])} error(s) in queue",
+                                    icon=version_compat.get_icon('ERROR')
+                                )
+                            elif validation['warnings']:
+                                health_row.label(
+                                    text=f"⚠ {len(validation['warnings'])} warning(s)",
+                                    icon=version_compat.get_icon('INFO')
+                                )
                 
                 # Create parent column for all collapsible sections
                 parent_col = box.column(align=True)
@@ -595,7 +645,7 @@ class RenderCuePanelMixin:
                     left.alignment = 'LEFT'
                     
                     is_expanded = getattr(settings, prop_name)
-                    icon_state = 'TRIA_DOWN' if is_expanded else 'TRIA_RIGHT'
+                    icon_state = version_compat.get_icon('TRIA_DOWN') if is_expanded else version_compat.get_icon('TRIA_RIGHT')
                     
                     left.prop(settings, prop_name, icon=icon_state, text=title, emboss=False)
                     
@@ -604,7 +654,7 @@ class RenderCuePanelMixin:
                     right.alignment = 'RIGHT'
                     
                     if is_active:
-                        right.label(text="[Active]", icon='CHECKMARK')
+                        right.label(text="[Active]", icon=version_compat.get_icon('CHECKMARK'))
                         right.separator()
                     
                     right.label(text="", icon=icon)
@@ -619,7 +669,7 @@ class RenderCuePanelMixin:
                 # Group: Output Settings
                 is_output_active = (job.override_output or job.override_camera or 
                                    job.override_transparent or job.override_compositor)
-                col = draw_collapsible_box(parent_col, settings, "ui_show_output", "Output Settings", 'FILE_FOLDER', is_active=is_output_active)
+                col = draw_collapsible_box(parent_col, settings, "ui_show_job_output", "Output Settings", version_compat.get_icon('FILE_FOLDER'), is_active=is_output_active)
                 
                 if col:
                     # Output Path
@@ -635,7 +685,7 @@ class RenderCuePanelMixin:
                         row.prop(job, "output_path", text="Path")
                         sub = row.row(align=True)
                         sub.scale_x = 1.0
-                        op = sub.operator("rendercue.browse_path", icon='FILE_FOLDER', text="")
+                        op = sub.operator("rendercue.browse_path", icon=version_compat.get_icon('FILE_FOLDER'), text="")
                         op.target_property = "job_output_path"
                     
 
@@ -679,7 +729,7 @@ class RenderCuePanelMixin:
                 # Group: Range & Resolution
                 is_dim_active = (job.override_frame_range or job.override_frame_step or 
                                 job.override_resolution)
-                col = draw_collapsible_box(parent_col, settings, "ui_show_dimensions", "Range & Resolution", 'SETTINGS', is_active=is_dim_active)
+                col = draw_collapsible_box(parent_col, settings, "ui_show_dimensions", "Range & Resolution", version_compat.get_icon('SETTINGS'), is_active=is_dim_active)
 
                 if col:
                     # Frame Range
@@ -712,7 +762,7 @@ class RenderCuePanelMixin:
                         if job.frame_step > 1:
                             total_frames = job.frame_end - job.frame_start + 1
                             render_frames = (total_frames + job.frame_step - 1) // job.frame_step
-                            sub_col.label(text=f"Renders approx. {render_frames} frames", icon='INFO')
+                            sub_col.label(text=f"Renders approx. {render_frames} frames", icon=version_compat.get_icon('INFO'))
                     
 
 
@@ -731,7 +781,7 @@ class RenderCuePanelMixin:
 
                 
                 # Group: Format
-                col = draw_collapsible_box(parent_col, settings, "ui_show_format", "Format", 'IMAGE_DATA', is_active=job.override_format)
+                col = draw_collapsible_box(parent_col, settings, "ui_show_format", "Format", version_compat.get_icon('IMAGE_DATA'), is_active=job.override_format)
                 
                 if col:
                     row = col.row(align=True)
@@ -754,7 +804,7 @@ class RenderCuePanelMixin:
                                    job.override_samples or job.override_denoising or
                                    job.override_device or job.override_time_limit or
                                    job.override_persistent_data)
-                col = draw_collapsible_box(parent_col, settings, "ui_show_render", "Render", 'RESTRICT_RENDER_OFF', is_active=is_render_active)
+                col = draw_collapsible_box(parent_col, settings, "ui_show_render", "Render", version_compat.get_icon('RESTRICT_RENDER_OFF'), is_active=is_render_active)
 
                 if col:
                     # Engine
@@ -777,7 +827,7 @@ class RenderCuePanelMixin:
 
 
                     # Samples (Cycles/Eevee only)
-                    if effective_engine in ['CYCLES', 'BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT']:
+                    if effective_engine == 'CYCLES' or version_compat.is_eevee_engine(effective_engine):
                         row = col.row(align=True)
                         row.prop(job, "override_samples", text="Samples")
                         
@@ -794,7 +844,7 @@ class RenderCuePanelMixin:
                     # === Cycles-Only Section ===
                     if effective_engine == 'CYCLES':
                         col.separator()
-                        col.label(text="Cycles Settings", icon='SETTINGS')
+                        col.label(text="Cycles Settings", icon=version_compat.get_icon('SETTINGS'))
                         
                         # Denoising
                         row = col.row(align=True)
@@ -859,11 +909,9 @@ class RenderCuePanelMixin:
         layout.separator()
         
         # Start Render Button
-        # Use a box to match width of other sections
-        box = layout.box()
-        row = box.row()
+        row = layout.row()
         row.scale_y = 2.0
-        row.operator("rendercue.batch_render", icon='RENDER_ANIMATION', text="START RENDER QUEUE")
+        row.operator("rendercue.confirm_render", icon=version_compat.get_icon('RENDER_ANIMATION'), text="START RENDER QUEUE")
 
 class RENDERCUE_MT_apply_to_all_menu(bpy.types.Menu):
     bl_label = "Apply to All Jobs"
@@ -913,8 +961,8 @@ class RENDERCUE_MT_presets_menu(bpy.types.Menu):
         layout.operator("rendercue.quick_preset", text="Production (100%, High Samples)").preset_type = 'PRODUCTION'
         layout.separator()
         layout.label(text="Queue Presets")
-        layout.operator("rendercue.save_preset", icon='FILE_TICK')
-        layout.operator("rendercue.load_preset", icon='FILE_FOLDER')
+        layout.operator("rendercue.save_preset", icon=version_compat.get_icon('FILE_TICK'))
+        layout.operator("rendercue.load_preset", icon=version_compat.get_icon('FILE_FOLDER'))
 
 class RENDER_PT_render_cue(RenderCuePanelMixin, bpy.types.Panel):
     """Main RenderCue panel in the Render properties tab."""
@@ -938,7 +986,7 @@ class RENDER_PT_render_cue_dashboard(RenderCuePanelMixin, bpy.types.Panel):
         box = layout.box()
         
         if settings.is_rendering:
-            box.label(text="Status: RENDERING", icon='RENDER_ANIMATION')
+            box.label(text="Status: RENDERING", icon=version_compat.get_icon('RENDER_ANIMATION'))
             box.prop(settings, "progress_message", text="")
             
             row = box.row()
@@ -955,13 +1003,13 @@ class RENDER_PT_render_cue_dashboard(RenderCuePanelMixin, bpy.types.Panel):
                 icon = 'CANCEL'
             
             row = box.row()
-            row.label(text=settings.last_render_message, icon=icon)
+            row.label(text=settings.last_render_message, icon=version_compat.get_icon(icon))
             # Clear button
-            op = row.operator("rendercue.clear_status", text="", icon='X')
+            op = row.operator("rendercue.clear_status", text="", icon=version_compat.get_icon('X'))
             
         else:
             # Idle state
-            box.label(text="Status: Idle", icon='PAUSE')
+            box.label(text="Status: Idle", icon=version_compat.get_icon('PAUSE'))
 
 class VIEW3D_PT_render_cue(RenderCuePanelMixin, bpy.types.Panel):
     """RenderCue panel in the 3D Viewport sidebar."""
@@ -992,7 +1040,7 @@ def draw_status_bar(self, context):
     settings = context.window_manager.rendercue
     
     if settings.is_rendering:
-        self.layout.label(text=f"RenderCue: {settings.progress_message} | ETR: {settings.etr}", icon='RENDER_ANIMATION')
+        self.layout.label(text=f"RenderCue: {settings.progress_message} | ETR: {settings.etr}", icon=version_compat.get_icon('RENDER_ANIMATION'))
     else:
         # Check for completion message
         try:
@@ -1010,7 +1058,7 @@ def draw_status_bar(self, context):
                         msg = f"RenderCue: Completed {settings.summary_successful_jobs}/{settings.summary_total_jobs} jobs ({settings.summary_total_frames} frames) in {settings.summary_render_time}"
                         if settings.summary_failed_jobs > 0:
                             msg += f" | {settings.summary_failed_jobs} Failed"
-                        self.layout.label(text=msg, icon=icon)
+                        self.layout.label(text=msg, icon=version_compat.get_icon(icon))
         except Exception:
             pass # Fail silently in status bar draw
 

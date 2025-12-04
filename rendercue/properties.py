@@ -1,4 +1,16 @@
+"""
+RenderCue Properties Module
+
+This module defines the Blender PropertyGroups used to store addon data:
+- RenderCueJob: Represents a single render job in the queue.
+- RenderCueSettings: Global settings and runtime state for the addon.
+
+It also contains update callbacks for handling property changes and dynamic defaults.
+"""
+
 import bpy
+import logging
+from . import version_compat
 
 def update_frame_range(self, context):
     """Validate frame range to ensure start <= end."""
@@ -28,7 +40,7 @@ def update_override_view_layer(self, context):
 
 def update_override_camera(self, context):
     if self.override_camera:
-        context.window_manager.rendercue.ui_show_output = True
+        context.window_manager.rendercue.ui_show_job_output = True
         if self.scene and self.scene.camera:
             self.camera = self.scene.camera
 
@@ -40,13 +52,13 @@ def update_override_frame_step(self, context):
 
 def update_override_transparent(self, context):
     if self.override_transparent:
-        context.window_manager.rendercue.ui_show_output = True
+        context.window_manager.rendercue.ui_show_job_output = True
         if self.scene:
             self.film_transparent = self.scene.render.film_transparent
 
 def update_override_compositor(self, context):
     if self.override_compositor:
-        context.window_manager.rendercue.ui_show_output = True
+        context.window_manager.rendercue.ui_show_job_output = True
         if self.scene:
             self.use_compositor = self.scene.render.use_compositing
 
@@ -56,57 +68,6 @@ def update_override_frame_range(self, context):
         if self.scene:
             self.frame_start = self.scene.frame_start
             self.frame_end = self.scene.frame_end
-
-def update_override_resolution(self, context):
-    if self.override_resolution:
-        context.window_manager.rendercue.ui_show_dimensions = True
-        if self.scene:
-            self.resolution_scale = self.scene.render.resolution_percentage
-
-def update_override_output(self, context):
-    if self.override_output:
-        context.window_manager.rendercue.ui_show_output = True
-
-def update_override_samples(self, context):
-    if self.override_samples:
-        context.window_manager.rendercue.ui_show_render = True
-        if self.scene:
-            # Determine effective engine
-            engine = self.scene.render.engine
-            if self.override_engine:
-                engine = self.render_engine
-                
-            if engine == 'CYCLES':
-                self.samples = self.scene.cycles.samples
-            elif engine in ('BLENDER_EEVEE', 'BLENDER_EEVEE_NEXT'):
-                try:
-                    self.samples = self.scene.eevee.taa_render_samples
-                except AttributeError:
-                    try:
-                        self.samples = self.scene.eevee.samples
-                    except AttributeError:
-                        pass
-
-def update_override_format(self, context):
-    if self.override_format:
-        context.window_manager.rendercue.ui_show_format = True
-        if self.scene:
-            self.render_format = self.scene.render.image_settings.file_format
-
-def update_override_denoising(self, context):
-    if self.override_denoising:
-        context.window_manager.rendercue.ui_show_render = True
-        if self.scene:
-            # Only relevant for Cycles usually, but check effective engine
-            engine = self.scene.render.engine
-            if self.override_engine:
-                engine = self.render_engine
-                
-            if engine == 'CYCLES':
-                try:
-                    self.use_denoising = self.scene.cycles.use_denoising
-                except AttributeError:
-                    pass
 
 def update_override_device(self, context):
     if self.override_device:
@@ -146,43 +107,66 @@ def update_override_persistent_data(self, context):
             except AttributeError:
                 pass
 
+def update_override_output(self, context):
+    if self.override_output:
+        context.window_manager.rendercue.ui_show_job_output = True
+
+def update_override_resolution(self, context):
+    if self.override_resolution:
+        context.window_manager.rendercue.ui_show_dimensions = True
+        if self.scene:
+            self.resolution_scale = self.scene.render.resolution_percentage
+
+def update_override_samples(self, context):
+    if self.override_samples:
+        context.window_manager.rendercue.ui_show_render = True
+        if self.scene:
+            # Determine effective engine
+            engine = self.scene.render.engine
+            if self.override_engine:
+                engine = self.render_engine
+                
+            if engine == 'CYCLES':
+                self.samples = self.scene.cycles.samples
+            elif version_compat.is_eevee_engine(engine):
+                self.samples = version_compat.get_eevee_samples(self.scene)
+
+def update_override_format(self, context):
+    if self.override_format:
+        context.window_manager.rendercue.ui_show_format = True
+        if self.scene:
+            from . import version_compat
+            
+            # Get scene's current format
+            scene_format = version_compat.get_image_format(self.scene)
+            
+            # Try to set job format to match scene
+            try:
+                self.render_format = scene_format
+            except TypeError:
+                # Scene format not available in our enum (version compatibility issue)
+                # Default to PNG as safest option
+                self.render_format = 'PNG'
+                logging.getLogger("RenderCue").warning(f"Scene format '{scene_format}' not compatible in this Blender version, defaulting to PNG")
+
+def update_override_denoising(self, context):
+    if self.override_denoising:
+        context.window_manager.rendercue.ui_show_render = True
+        if self.scene:
+            # Only relevant for Cycles usually, but check effective engine
+            engine = self.scene.render.engine
+            if self.override_engine:
+                engine = self.render_engine
+                
+            if engine == 'CYCLES':
+                try:
+                    self.use_denoising = self.scene.cycles.use_denoising
+                except AttributeError:
+                    pass
+
 def get_available_renderers(self, context):
     """Dynamically enumerate all available render engines using robust detection."""
-    items = []
-    
-    # Use __subclasses__ for efficient detection
-    for engine in bpy.types.RenderEngine.__subclasses__():
-        if hasattr(engine, 'bl_idname') and hasattr(engine, 'bl_label'):
-            items.append((
-                engine.bl_idname,
-                engine.bl_label,
-                f"Use {engine.bl_label}"
-            ))
-    
-    # Ensure standard engines are present
-    standard_engines = {
-        'BLENDER_WORKBENCH': ("Workbench", "Workbench render engine"),
-        'BLENDER_EEVEE': ("Eevee", "Eevee render engine"),
-        'BLENDER_EEVEE_NEXT': ("Eevee Next", "Eevee Next render engine"),
-        'CYCLES': ("Cycles", "Cycles render engine"),
-    }
-    
-    existing_ids = {item[0] for item in items}
-    for eng_id, (label, desc) in standard_engines.items():
-        if eng_id not in existing_ids:
-            # Check if engine exists in bpy.types (safer than iterating dir)
-            if hasattr(bpy.types, f"{eng_id}_RenderEngine") or \
-               (eng_id == 'BLENDER_EEVEE_NEXT' and hasattr(bpy.types, 'EEVEE_NEXT_RenderEngine')): # Handle naming variations if any
-                items.append((eng_id, label, desc))
-            # Fallback for standard engines that should be there
-            elif eng_id in ['BLENDER_EEVEE', 'CYCLES', 'BLENDER_WORKBENCH']:
-                 items.append((eng_id, label, desc))
-
-    # Remove duplicates and sort
-    items = list(set(items))
-    items.sort(key=lambda x: x[1])
-    
-    return items
+    return version_compat.get_available_engines()
 
 class RenderCueJob(bpy.types.PropertyGroup):
     """Property group defining a single render job."""
@@ -544,6 +528,13 @@ class RenderCueSettings(bpy.types.PropertyGroup):
         options={'SKIP_SAVE'}
     )
 
+    renumber_frame_step_output: bpy.props.BoolProperty(
+        name="Renumber Output",
+        default=False,
+        description="Renumber output files sequentially when using frame step > 1",
+        options={'SKIP_SAVE'}
+    )
+
     presets_path: bpy.props.StringProperty(
         name="Presets Path",
         subtype='DIR_PATH',
@@ -673,7 +664,8 @@ class RenderCueSettings(bpy.types.PropertyGroup):
     )
 
     # UI State (Collapse/Expand)
-    ui_show_output: bpy.props.BoolProperty(name="Show Output", default=True, options={'SKIP_SAVE'})
+    ui_show_global_output: bpy.props.BoolProperty(name="Show Global Output", default=False, options={'SKIP_SAVE'})
+    ui_show_job_output: bpy.props.BoolProperty(name="Show Job Output", default=False, options={'SKIP_SAVE'})
     ui_show_overrides_main: bpy.props.BoolProperty(name="Show Overrides", default=True, options={'SKIP_SAVE'})
     ui_show_dimensions: bpy.props.BoolProperty(name="Show Dimensions", default=False, options={'SKIP_SAVE'})
     ui_show_format: bpy.props.BoolProperty(name="Show Format", default=False, options={'SKIP_SAVE'})

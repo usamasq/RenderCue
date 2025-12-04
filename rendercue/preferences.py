@@ -1,5 +1,6 @@
 import bpy
 from .core import StateManager
+from . import version_compat
 
 class RenderCuePreferences(bpy.types.AddonPreferences):
     """Addon preferences for RenderCue."""
@@ -18,6 +19,12 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         default=True
     )
 
+    renumber_frame_step_output: bpy.props.BoolProperty(
+        name="Auto-Renumber Frame Step Output",
+        description="Automatically renumber output files sequentially when using Frame Step > 1 (for video editor compatibility)",
+        default=False
+    )
+
     def update_auto_save(self, context):
         if self.auto_save_queue:
             StateManager.register_handlers()
@@ -32,19 +39,6 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
     )
 
     # Completion Feedback Preferences
-    show_completion_popup: bpy.props.BoolProperty(
-        name="Show Completion Popup",
-        description="Show modal popup when render completes",
-        default=True
-    )
-    
-    popup_auto_dismiss_seconds: bpy.props.IntProperty(
-        name="Popup Auto-Dismiss Time",
-        description="Auto-dismiss popup after this many seconds (0 = manual only)",
-        default=10,
-        min=0,
-        max=60
-    )
     
     show_completion_statusbar: bpy.props.BoolProperty(
         name="Show Completion in Status Bar",
@@ -64,12 +58,12 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         layout = self.layout
         
         # Header
-        layout.label(text="RenderCue Addon Settings", icon='SETTINGS')
+        layout.label(text="RenderCue Addon Settings", icon=version_compat.get_icon('SETTINGS'))
         layout.separator()
         
         # Instructions Section
         box = layout.box()
-        box.label(text="Quick Start:", icon='INFO')
+        box.label(text="Quick Start:", icon=version_compat.get_icon('INFO'))
         col = box.column(align=True)
         col.label(text="1. Open RenderCue panel (Render Properties or 3D Viewport N-Panel)")
         col.label(text="2. Click 'Add Scene' or 'Add All Scenes' to build your queue")
@@ -81,6 +75,7 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         layout.separator()
         layout.label(text="General:")
         layout.prop(self, "auto_save_queue")
+        layout.prop(self, "renumber_frame_step_output")
         
         layout.separator()
         layout.label(text="Notifications:")
@@ -90,12 +85,6 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         layout.separator()
         layout.label(text="Completion Feedback:")
         
-        # Popup Settings
-        row = layout.row()
-        row.prop(self, "show_completion_popup")
-        if self.show_completion_popup:
-            row.prop(self, "popup_auto_dismiss_seconds", text="Dismiss (s)")
-            
         # Status Bar Settings
         row = layout.row()
         row.prop(self, "show_completion_statusbar")
@@ -107,7 +96,7 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         
         # Tips
         box = layout.box()
-        box.label(text="Tips:", icon='LIGHTPROBE_SPHERE')
+        box.label(text="Tips:", icon=version_compat.get_icon('LIGHTPROBE_SPHERE'))
         col = box.column(align=True)
         col.label(text="• Enable 'Auto-Save Queue' in preferences to persist queue in .blend files")
         col.label(text="• Use 'Override All' button to apply settings to all jobs in queue")
@@ -117,8 +106,8 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         
         # Links
         row = layout.row()
-        row.operator("wm.url_open", text="Documentation", icon='URL').url = "https://github.com/usamasq/RenderCue"
-        row.operator("wm.url_open", text="Report Issue", icon='ERROR').url = "https://github.com/usamasq/RenderCue/issues"
+        row.operator("wm.url_open", text="Documentation", icon=version_compat.get_icon('URL')).url = "https://github.com/usamasq/RenderCue"
+        row.operator("wm.url_open", text="Report Issue", icon=version_compat.get_icon('ERROR')).url = "https://github.com/usamasq/RenderCue/issues"
 
 def register():
     bpy.utils.register_class(RenderCuePreferences)
