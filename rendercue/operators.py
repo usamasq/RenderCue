@@ -370,11 +370,27 @@ class RENDERCUE_OT_open_output_folder(bpy.types.Operator):
         
         if not os.path.exists(target_path):
             self.report({'WARNING'}, f"Directory does not exist: {target_path}")
-            # Fallback to just opening the base path if specific one fails
-            base_fallback = bpy.path.abspath(settings.global_output_path)
+            
+            # Fallback 1: Try the base path (parent of the scene folder)
+            # This handles cases where the scene folder wasn't created but the parent was
+            if settings.output_location == 'CUSTOM':
+                base_fallback = bpy.path.abspath(settings.global_output_path)
+            else:
+                # Re-calculate base for BLEND mode
+                blend_name = os.path.splitext(os.path.basename(bpy.data.filepath))[0] or "Untitled"
+                base_fallback = bpy.path.abspath(f"//{blend_name}_RenderCue")
+
             if os.path.exists(base_fallback) and base_fallback != target_path:
                  bpy.ops.wm.path_open(filepath=base_fallback)
                  return {'FINISHED'}
+                 
+            # Fallback 2: Try the legacy/simple path (//SceneName) just in case
+            # This helps if the user is seeing "folder named after scene" in the root
+            legacy_path = os.path.join(os.path.dirname(bpy.data.filepath) if bpy.data.filepath else "", job.scene.name if job.scene else "")
+            if os.path.exists(legacy_path):
+                bpy.ops.wm.path_open(filepath=legacy_path)
+                return {'FINISHED'}
+
             return {'CANCELLED'}
             
         bpy.ops.wm.path_open(filepath=target_path)
