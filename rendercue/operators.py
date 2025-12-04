@@ -342,13 +342,42 @@ class RENDERCUE_OT_open_output_folder(bpy.types.Operator):
     def execute(self, context):
         """Execute the operator."""
         settings = context.window_manager.rendercue
-        path = bpy.path.abspath(settings.global_output_path)
         
-        if not os.path.exists(path):
-            self.report({'WARNING'}, f"Directory does not exist: {path}")
+        # Default to global path
+        target_path = bpy.path.abspath(settings.global_output_path)
+        
+        # Smart Behavior: If only one job, try to open its specific folder
+        if len(settings.jobs) == 1:
+            job = settings.jobs[0]
+            if job.scene:
+                # Replicate logic from core.py
+                if job.override_output and job.output_path:
+                    target_path = bpy.path.abspath(job.output_path)
+                else:
+                    # Standard structure: Base/SceneName
+                    if settings.output_location == 'CUSTOM':
+                        base = bpy.path.abspath(settings.global_output_path)
+                    else:
+                        # Match core.py logic: //BlendName_RenderCue
+                        blend_name = os.path.splitext(os.path.basename(bpy.data.filepath))[0]
+                        if not blend_name:
+                            blend_name = "Untitled"
+                        base = bpy.path.abspath(f"//{blend_name}_RenderCue")
+                        
+                    target_path = os.path.join(base, job.scene.name)
+        
+        target_path = os.path.normpath(target_path)
+        
+        if not os.path.exists(target_path):
+            self.report({'WARNING'}, f"Directory does not exist: {target_path}")
+            # Fallback to just opening the base path if specific one fails
+            base_fallback = bpy.path.abspath(settings.global_output_path)
+            if os.path.exists(base_fallback) and base_fallback != target_path:
+                 bpy.ops.wm.path_open(filepath=base_fallback)
+                 return {'FINISHED'}
             return {'CANCELLED'}
             
-        bpy.ops.wm.path_open(filepath=path)
+        bpy.ops.wm.path_open(filepath=target_path)
         return {'FINISHED'}
 
 class RENDERCUE_OT_validate_queue(bpy.types.Operator):

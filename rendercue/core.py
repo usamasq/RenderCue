@@ -16,6 +16,7 @@ import time
 import glob
 import re
 import shutil
+import uuid
 from .constants import (
     MANIFEST_JOBS, MANIFEST_GLOBAL_OUTPUT, MANIFEST_OUTPUT_LOCATION,
     MANIFEST_RENUMBER_OUTPUT,
@@ -98,7 +99,7 @@ class StateManager:
             "timestamp": time.time(),
             MANIFEST_GLOBAL_OUTPUT: settings.global_output_path,
             MANIFEST_OUTPUT_LOCATION: settings.output_location,
-            MANIFEST_RENUMBER_OUTPUT: settings.renumber_frame_step_output,
+            MANIFEST_RENUMBER_OUTPUT: context.preferences.addons[__package__].preferences.renumber_frame_step_output,
             MANIFEST_JOBS: []
         }
         
@@ -178,7 +179,7 @@ class StateManager:
             
             settings.global_output_path = data.get(MANIFEST_GLOBAL_OUTPUT, settings.global_output_path)
             settings.output_location = data.get(MANIFEST_OUTPUT_LOCATION, 'BLEND')
-            settings.renumber_frame_step_output = data.get(MANIFEST_RENUMBER_OUTPUT, False)
+            # settings.renumber_frame_step_output = data.get(MANIFEST_RENUMBER_OUTPUT, False)
             
             for job_data in data.get(MANIFEST_JOBS, []):
                 job = settings.jobs.add()
@@ -304,7 +305,7 @@ class StateManager:
         data = {
             MANIFEST_GLOBAL_OUTPUT: settings.global_output_path,
             MANIFEST_OUTPUT_LOCATION: settings.output_location,
-            MANIFEST_RENUMBER_OUTPUT: settings.renumber_frame_step_output,
+            MANIFEST_RENUMBER_OUTPUT: context.preferences.addons[__package__].preferences.renumber_frame_step_output,
             MANIFEST_JOBS: []
         }
         
@@ -374,7 +375,7 @@ class StateManager:
             
             settings.global_output_path = data.get(MANIFEST_GLOBAL_OUTPUT, settings.global_output_path)
             settings.output_location = data.get(MANIFEST_OUTPUT_LOCATION, 'BLEND')
-            settings.renumber_frame_step_output = data.get(MANIFEST_RENUMBER_OUTPUT, False)
+            # settings.renumber_frame_step_output = data.get(MANIFEST_RENUMBER_OUTPUT, False)
             
             for job_data in data.get(MANIFEST_JOBS, []):
                 job = settings.jobs.add()
@@ -762,43 +763,95 @@ class BackgroundWorker:
                 pass
 
         try:
+            preview_generated = False
+            
+            # Strategy 1: Try to save from Render Result buffer
             if 'Render Result' in bpy.data.images:
                 img = bpy.data.images['Render Result']
                 
-                # Check if image has actual pixel data
-                # Some formats (e.g., Multi-layer EXR) write directly to disk and don't populate Render Result
-                if not img.has_data or img.size[0] == 0 or img.size[1] == 0:
-                    log_debug(f"Render Result has no image data (format: {scene.render.image_settings.file_format}). Skipping preview generation.")
-                    preview_path = ""
-                else:
-                    temp_preview_path = preview_path + ".tmp"
-                    
-                    # Create temporary scene with JPEG settings to bypass format restrictions
-                    temp_scene = bpy.data.scenes.new("RenderCue_TempPreview")
+                if img.has_data and img.size[0] > 0 and img.size[1] > 0:
                     try:
-                        temp_scene.render.image_settings.file_format = 'JPEG'
-                        temp_scene.render.image_settings.color_mode = 'RGB'
-                        if hasattr(temp_scene.render.image_settings, 'quality'):
-                            temp_scene.render.image_settings.quality = 90
+                        temp_preview_path = preview_path + ".tmp"
                         
-                        # Save using temp scene settings
-                        img.save_render(filepath=temp_preview_path, scene=temp_scene)
-                        
+                        # Create temporary scene with JPEG settings
+                        temp_scene = bpy.data.scenes.new("RenderCue_TempPreview")
                         try:
+                            temp_scene.render.image_settings.file_format = 'JPEG'
+                            temp_scene.render.image_settings.color_mode = 'RGB'
+                            if hasattr(temp_scene.render.image_settings, 'quality'):
+                                temp_scene.render.image_settings.quality = 90
+                            
+                            img.save_render(filepath=temp_preview_path, scene=temp_scene)
+                            
+                            try:
+                                os.replace(temp_preview_path, preview_path)
+                                log_debug(f"Preview saved from buffer to {preview_path}")
+                                preview_generated = True
+                            except OSError as e:
+                                log_debug(f"Atomic rename failed: {e}")
+                                if os.path.exists(temp_preview_path):
+                                    os.remove(temp_preview_path)
+                        finally:
+                            bpy.data.scenes.remove(temp_scene)
+                    except Exception as e:
+                        log_debug(f"Buffer save failed: {e}. Falling back to disk load.")
+            
+            # Strategy 2: Fallback to loading from disk if buffer failed
+            if not preview_generated:
+                log_debug(f"Attempting to load preview from disk: {scene.render.filepath}")
+                
+                filepath = scene.render.filepath
+                loaded_img = None
+                
+                try:
+                    # Find the actual file (handle extensions)
+                    actual_path = None
+                    if os.path.exists(filepath) and os.path.isfile(filepath):
+                        actual_path = filepath
+                    else:
+                        for ext in ['.png', '.jpg', '.jpeg', '.exr', '.tif', '.tga', '.bmp']:
+                            if os.path.exists(filepath + ext):
+                                actual_path = filepath + ext
+                                break
+                    
+                    if actual_path:
+                        loaded_img = bpy.data.images.load(actual_path)
+                        
+                        # Save this loaded image as our preview thumbnail
+                        # We can use img.save() directly since it's a loaded image, 
+                        # but we want to convert to small JPG.
+                        # So we use the same temp scene trick.
+                        
+                        temp_preview_path = preview_path + ".tmp"
+                        temp_scene = bpy.data.scenes.new("RenderCue_TempPreview_Disk")
+                        try:
+                            temp_scene.render.image_settings.file_format = 'JPEG'
+                            temp_scene.render.image_settings.color_mode = 'RGB'
+                            if hasattr(temp_scene.render.image_settings, 'quality'):
+                                temp_scene.render.image_settings.quality = 90
+                                
+                            loaded_img.save_render(filepath=temp_preview_path, scene=temp_scene)
+                            
                             os.replace(temp_preview_path, preview_path)
-                            log_debug(f"Preview saved to {preview_path}")
-                        except OSError as e:
-                            log_debug(f"Atomic rename failed: {e}")
-                            if os.path.exists(temp_preview_path):
-                                os.remove(temp_preview_path)
-                    finally:
-                        # Always cleanup temp scene
-                        bpy.data.scenes.remove(temp_scene)
-            else:
-                log_debug("Render Result image not found")
+                            log_debug(f"Preview saved from disk file to {preview_path}")
+                            preview_generated = True
+                            
+                        finally:
+                            bpy.data.scenes.remove(temp_scene)
+                    else:
+                        log_debug(f"Could not find rendered file at {filepath}")
+
+                except Exception as e:
+                    log_debug(f"Disk load fallback failed: {e}")
+                finally:
+                    if loaded_img:
+                        bpy.data.images.remove(loaded_img)
+
+            if not preview_generated:
                 preview_path = ""
+                
         except Exception as e:
-            log_debug(f"Could not save preview: {e}")
+            log_debug(f"Critical error in preview generation: {e}")
             if self.logger:
                 self.logger.warning(f"Could not save preview: {e}")
             preview_path = ""
@@ -873,7 +926,10 @@ class BackgroundWorker:
                 if output_location == 'CUSTOM':
                     base_path = global_output
                 else:
-                    base_path = "//"
+                    # Use Blend File Name + Suffix
+                    if not blend_name:
+                        blend_name = "Untitled"
+                    base_path = f"//{blend_name}_RenderCue"
                     
                 if base_path.startswith("//"):
                     base_path = bpy.path.abspath(base_path)

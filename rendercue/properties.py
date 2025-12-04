@@ -528,12 +528,7 @@ class RenderCueSettings(bpy.types.PropertyGroup):
         options={'SKIP_SAVE'}
     )
 
-    renumber_frame_step_output: bpy.props.BoolProperty(
-        name="Renumber Output",
-        default=False,
-        description="Renumber output files sequentially when using frame step > 1",
-        options={'SKIP_SAVE'}
-    )
+
 
     presets_path: bpy.props.StringProperty(
         name="Presets Path",
