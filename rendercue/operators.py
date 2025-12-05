@@ -85,6 +85,50 @@ class RENDERCUE_OT_move_job(bpy.types.Operator):
             
         return {'FINISHED'}
 
+class RENDERCUE_OT_move_job_to_top(bpy.types.Operator):
+    """Move the selected job to the top of the queue."""
+    bl_idname = "rendercue.move_job_to_top"
+    bl_label = "Move to Top"
+    bl_description = "Move the selected job to the first position"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        settings = context.window_manager.rendercue
+        return settings.jobs and settings.active_job_index > 0
+
+    def execute(self, context):
+        settings = context.window_manager.rendercue
+        idx = settings.active_job_index
+        
+        # Move to position 0
+        settings.jobs.move(idx, 0)
+        settings.active_job_index = 0
+        return {'FINISHED'}
+
+class RENDERCUE_OT_move_job_to_bottom(bpy.types.Operator):
+    """Move the selected job to the bottom of the queue."""
+    bl_idname = "rendercue.move_job_to_bottom"
+    bl_label = "Move to Bottom"
+    bl_description = "Move the selected job to the last position"
+    bl_options = {'REGISTER', 'UNDO'}
+
+    @classmethod
+    def poll(cls, context):
+        settings = context.window_manager.rendercue
+        return settings.jobs and settings.active_job_index < len(settings.jobs) - 1
+
+    def execute(self, context):
+        settings = context.window_manager.rendercue
+        idx = settings.active_job_index
+        last_idx = len(settings.jobs) - 1
+        
+        # Move to last position
+        settings.jobs.move(idx, last_idx)
+        settings.active_job_index = last_idx
+        return {'FINISHED'}
+
+
 class RENDERCUE_OT_populate_all(bpy.types.Operator):
     """Add all scenes in this .blend file to the render queue."""
     bl_idname = "rendercue.populate_all"
@@ -974,6 +1018,8 @@ classes = (
     RENDERCUE_OT_add_job,
     RENDERCUE_OT_remove_job,
     RENDERCUE_OT_move_job,
+    RENDERCUE_OT_move_job_to_top,
+    RENDERCUE_OT_move_job_to_bottom,
     RENDERCUE_OT_populate_all,
     RENDERCUE_OT_apply_override_to_all,
     RENDERCUE_OT_remove_override,

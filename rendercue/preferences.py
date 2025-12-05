@@ -39,7 +39,6 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
     )
 
     # Completion Feedback Preferences
-    
     show_completion_statusbar: bpy.props.BoolProperty(
         name="Show Completion in Status Bar",
         description="Show render completion message in status bar",
@@ -71,21 +70,21 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         col.label(text="4. Click 'Render Cue' to batch render all scenes")
         layout.separator()
         
-        # Preferences
+        # General Preferences
         layout.separator()
         layout.label(text="General:")
         layout.prop(self, "auto_save_queue")
         layout.prop(self, "renumber_frame_step_output")
         
+        # Notifications
         layout.separator()
         layout.label(text="Notifications:")
         layout.prop(self, "show_notifications")
         layout.prop(self, "webhook_url")
         
+        # Completion Feedback
         layout.separator()
         layout.label(text="Completion Feedback:")
-        
-        # Status Bar Settings
         row = layout.row()
         row.prop(self, "show_completion_statusbar")
         if self.show_completion_statusbar:
@@ -98,9 +97,9 @@ class RenderCuePreferences(bpy.types.AddonPreferences):
         box = layout.box()
         box.label(text="Tips:", icon=version_compat.get_icon('LIGHTPROBE_SPHERE'))
         col = box.column(align=True)
-        col.label(text="• Enable 'Auto-Save Queue' in preferences to persist queue in .blend files")
-        col.label(text="• Use 'Override All' button to apply settings to all jobs in queue")
-        col.label(text="• Access RenderCue from multiple locations for convenience")
+        col.label(text="• Enable 'Auto-Save Queue' to persist queue in .blend files")
+        col.label(text="• Use 'Apply to All' button to copy settings across jobs")
+        col.label(text="• Access RenderCue from Render Properties or 3D View sidebar")
         
         layout.separator()
         

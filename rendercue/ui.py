@@ -30,173 +30,75 @@ class RENDER_UL_render_cue_jobs(bpy.types.UIList):
             layout.label(text="<Missing Scene>", icon=version_compat.get_icon('ERROR'))
             return
 
+        # Check if job is valid (has camera)
+        has_camera = item.scene.camera is not None
+        has_camera_override = item.override_camera and item.camera is not None
+        is_valid = has_camera or has_camera_override
+
         # Status icon (from constant mapping)
         status_icon = UI_STATUS_ICONS.get(item.render_status, 'QUESTION')
+        
+        # Override status icon for invalid jobs
+        if not is_valid:
+            status_icon = 'ERROR'
 
-        # Main row
+        # === CLEAN DESIGN: Status | Name | Switch | Frames ===
         row = layout.row(align=True)
         
-        # Use Blender's alert system for failed jobs
-        if item.render_status == 'FAILED':
+        # Visual styling based on status
+        if not is_valid:
+            row.alert = True  # Red highlight for invalid
+        elif item.render_status == 'FAILED':
             row.alert = True
         elif item.render_status == 'COMPLETED':
-            row.active = True  # Highlight completed
+            row.active = False  # Muted for completed
             
-        # Status icon
+        # 1. Status Icon
         row.label(text="", icon=version_compat.get_icon(status_icon))
         
-        # Scene Name
-        row.label(text=item.scene.name, translate=False)
+        # 2. Scene Name (with "no camera" suffix if invalid)
+        name_text = item.scene.name
+        if not is_valid:
+            name_text += " (no camera)"
+        row.label(text=name_text, translate=False)
         
-        # Switch Scene Button
-        op = row.operator("rendercue.switch_to_job_scene", text="", icon=version_compat.get_icon('VIEW3D'))
+        # 3. Switch Scene Button (quick action)
+        op = row.operator("rendercue.switch_to_job_scene", text="", icon=version_compat.get_icon('RESTRICT_VIEW_OFF'))
         op.index = index
         
-        # Override Indicators (Visual feedback)
-        sub = row.row(align=True)
-        sub.scale_x = 0.8
-        
-        if item.override_output:
-            sub.label(icon=version_compat.get_icon('FILE_FOLDER'))
+        # 4. Frame Range (right-aligned, compact)
         if item.override_frame_range:
-            sub.label(icon=version_compat.get_icon('TIME'))
-        if item.override_format:
-            sub.label(icon=version_compat.get_icon('IMAGE_DATA'))
-        if item.override_view_layer:
-            sub.label(icon=version_compat.get_icon('RENDERLAYERS'))
-            
-        # Renderer Info
-        # Check for override first
-        if item.override_engine:
-            r_engine = item.render_engine
+            start = item.frame_start
+            end = item.frame_end
         else:
-            r_engine = item.scene.render.engine
-            
-        icon_engine = version_compat.get_icon('SHADING_RENDERED')
-        engine_name = r_engine
+            start = item.scene.frame_start
+            end = item.scene.frame_end
         
-        if r_engine == 'CYCLES':
-            icon_engine = version_compat.get_icon('PMARKER_ACT')
-            engine_name = "Cycles"
-        elif version_compat.is_eevee_engine(r_engine):
-            icon_engine = version_compat.get_icon('LIGHT_SUN')
-            engine_name = version_compat.get_engine_display_name(r_engine)
-        elif r_engine == 'BLENDER_WORKBENCH':
-            icon_engine = version_compat.get_icon('SHADING_SOLID')
-            engine_name = "Workbench"
-            
-        row.label(text=engine_name, icon=icon_engine)
-        
-        # Resolution (actual dimensions)
-        res_x = item.scene.render.resolution_x
-        res_y = item.scene.render.resolution_y
-        scale = item.scene.render.resolution_percentage
-        if item.override_resolution:
-            scale = item.resolution_scale
-        
-        # Calculate final resolution
-        # Guard against zero scale
-        safe_scale = max(1, scale)
-        final_x = int(res_x * safe_scale / UI_RESOLUTION_PERCENTAGE_BASE)
-        final_y = int(res_y * safe_scale / UI_RESOLUTION_PERCENTAGE_BASE)
-        
-        if item.override_resolution:
-            row.label(text=f"{final_x}x{final_y}", icon=version_compat.get_icon('MODIFIER'))
+        # Determine step
+        if item.override_frame_step:
+            step = item.frame_step
         else:
-            row.label(text=f"{final_x}x{final_y}")
-            
-        # Samples with clearer label
-        samples = 0
+            step = item.scene.frame_step
         
-        # Determine samples based on engine (override or scene)
-        if item.override_samples:
-            samples = item.samples
+        # Calculate frame count
+        if step > 0:
+            frame_count = ((end - start) // step) + 1
         else:
-            # Get scene samples
-            if r_engine == 'CYCLES':
-                samples = item.scene.cycles.samples
-            elif version_compat.is_eevee_engine(r_engine):
-                samples = version_compat.get_eevee_samples(item.scene)
+            frame_count = end - start + 1
         
-        if item.override_samples:
-            row.label(text=f"Samples: {samples}", icon=version_compat.get_icon('MODIFIER'))
+        # Compact frame display
+        sub = row.row()
+        sub.alignment = 'RIGHT'
+        if start == end:
+            sub.label(text=f"{start}")
         else:
-            row.label(text=f"Samples: {samples}")
+            sub.label(text=f"{start}-{end} ({frame_count}f)")
+
+
 
 def draw_queue_health_panel(layout, context):
-    """Display queue validation status (HIG: Feedback)."""
-    from . import ui_helpers
-    
-    settings = context.window_manager.rendercue
-    if not settings.jobs:
-        return  # No queue, no health to show
-    
-    validation = ui_helpers.get_queue_validation_summary(context)
-    
-    # Always create box to prevent layout shift
-    health_box = layout.box()
-    
-    # Error State (Red)
-    if validation['errors']:
-        health_box.alert = True
-        
-        # Header
-        header = health_box.row()
-        header.scale_y = 0.9
-        header.label(
-            text=f"{len(validation['errors'])} Critical Issue(s)",
-            icon=version_compat.get_icon('CANCEL')
-        )
-        
-        # Show first 2 errors (HIG: Clarity)
-        for error in validation['errors'][:2]:
-            row = health_box.row()
-            row.scale_y = 0.7
-            row.label(text=f"• {error}")
-        
-        # "More" indicator
-        if len(validation['errors']) > 2:
-            row = health_box.row()
-            row.scale_y = 0.7
-            row.label(text=f"... +{len(validation['errors']) - 2} more")
-        
-        # Action button
-        row = health_box.row()
-        row.operator(
-            "rendercue.validate_queue",
-            icon=version_compat.get_icon('CHECKMARK'),
-            text="View All Issues"
-        )
-        
-    # Warning State (Orange)
-    elif validation['warnings']:
-        header = health_box.row()
-        header.scale_y = 0.9
-        header.label(
-            text=f"{len(validation['warnings'])} Warning(s)",
-            icon=version_compat.get_icon('INFO')
-        )
-        # Orange tint for warnings
-        sub = header.row()
-        sub.alert = True
-        sub.label(text="")
-        
-        # Show first 2 warnings
-        for warning in validation['warnings'][:2]:
-            row = health_box.row()
-            row.scale_y = 0.7
-            row.label(text=f"⚠ {warning}")
-        
-        if len(validation['warnings']) > 2:
-            row = health_box.row()
-            row.scale_y = 0.7
-            row.label(text=f"... +{len(validation['warnings']) - 2} more")
-            
-    # Success State (Green/Dimmed)
-    else:
-        row = health_box.row()
-        row.enabled = False
-        row.label(text="Queue Ready", icon=version_compat.get_icon('CHECKMARK'))
+    """Deprecated - issues now shown in Scene Summary."""
+    pass  # Issues displayed in Scene Summary card instead
 
 class RenderCuePanelMixin:
     """Mixin class for shared panel drawing logic."""
@@ -411,21 +313,26 @@ class RenderCuePanelMixin:
         # Scene Availability Info
         stats = ui_helpers.get_scene_statistics(context)
         
-        # Always show info row
-        info_row = layout.row()
-        info_row.scale_y = 0.75
+        # Show warning if jobs have invalid scenes (no camera)
+        if stats['invalid_jobs'] > 0:
+            warn_row = layout.row()
+            warn_row.alert = True
+            if stats['invalid_jobs'] == 1:
+                warn_row.label(
+                    text=f"'{stats['invalid_job_names'][0]}' has no camera",
+                    icon=version_compat.get_icon('ERROR')
+                )
+            else:
+                warn_row.label(
+                    text=f"{stats['invalid_jobs']} jobs have no camera",
+                    icon=version_compat.get_icon('ERROR')
+                )
         
-        if stats['total'] == 0:
-            info_row.enabled = False
-            info_row.label(text="No scenes in file", icon=version_compat.get_icon('INFO'))
-        elif stats['available'] > 0:
+        # Info row for available scenes
+        if stats['available'] > 0:
+            info_row = layout.row()
+            info_row.scale_y = 0.75
             info_row.label(text=f"{stats['available']} scene(s) can be added", icon=version_compat.get_icon('ADD'))
-        elif stats['with_cameras'] == 0:
-            info_row.alert = True
-            info_row.label(text="No scenes have cameras assigned", icon=version_compat.get_icon('ERROR'))
-        else:
-            info_row.enabled = False
-            info_row.label(text="All scenes with cameras in queue", icon=version_compat.get_icon('CHECKMARK'))
 
         row = layout.row(align=True)
         row.scale_y = 1.2
@@ -435,20 +342,6 @@ class RenderCuePanelMixin:
             btn_text = f"Add All Scenes ({stats['available']})"
             
         row.operator("rendercue.populate_all", icon=version_compat.get_icon('SCENE_DATA'), text=btn_text)
-        
-        # Check for mixed engines
-        warning = ui_helpers.get_mixed_engine_warning(settings)
-        
-        warn_row = layout.row()
-        warn_row.scale_y = 0.8
-        
-        if warning:
-            # Informational only - mixed engines is a valid choice
-            warn_row.label(text=warning, icon=version_compat.get_icon('INFO'))
-        else:
-            warn_row.enabled = False
-            warn_row.label(text="All jobs use same engine", icon=version_compat.get_icon('CHECKMARK'))
-
         row.menu("RENDERCUE_MT_presets_menu", icon=version_compat.get_icon('PRESET'), text="Presets")
         
         layout.separator()
@@ -513,11 +406,84 @@ class RenderCuePanelMixin:
             
             if settings.active_job_index >= 0:
                 job = settings.jobs[settings.active_job_index]
+            
+            # === SCENE SUMMARY ===
+            layout.separator()
+            summary_box = layout.box()
+            
+            # Scene Title + Switch Button
+            title_row = summary_box.row()
+            title_row.label(text=job.scene.name if job.scene else "No Scene", icon=version_compat.get_icon('SCENE_DATA'))
+            op = title_row.operator("rendercue.switch_to_job_scene", text="", icon=version_compat.get_icon('RESTRICT_VIEW_OFF'))
+            op.index = settings.active_job_index
+            
+            if job.scene:
+                # Settings Row: Engine • Resolution • Samples
+                info_row = summary_box.row()
+                info_row.scale_y = 0.8
+                
+                # Engine
+                if job.override_engine:
+                    engine = job.render_engine
+                    engine_text = f"⚡ {version_compat.get_engine_display_name(engine)}"
+                else:
+                    engine = job.scene.render.engine
+                    engine_text = version_compat.get_engine_display_name(engine)
+                
+                # Resolution  
+                res_x = job.scene.render.resolution_x
+                res_y = job.scene.render.resolution_y
+                if job.override_resolution:
+                    scale = job.resolution_scale
+                    res_text = f"⚡ {int(res_x * scale / 100)}×{int(res_y * scale / 100)}"
+                else:
+                    scale = job.scene.render.resolution_percentage
+                    res_text = f"{int(res_x * scale / 100)}×{int(res_y * scale / 100)}"
+                
+                # Samples
+                if job.override_samples:
+                    samples_text = f"⚡ {job.samples} samples"
+                elif engine == 'CYCLES':
+                    samples_text = f"{job.scene.cycles.samples} samples"
+                else:
+                    samples_text = f"{version_compat.get_eevee_samples(job.scene)} samples"
+                
+                info_row.label(text=f"{engine_text} • {res_text} • {samples_text}")
+                
+                # Show other active overrides if any
+                override_info = ui_helpers.get_override_summary(context, job)
+                other_overrides = []
+                if job.override_frame_range:
+                    other_overrides.append("Frame Range")
+                if job.override_output:
+                    other_overrides.append("Output")
+                if job.override_format:
+                    other_overrides.append("Format")
+                if job.override_view_layer:
+                    other_overrides.append("View Layer")
+                if job.override_camera:
+                    other_overrides.append("Camera")
+                
+                if other_overrides:
+                    ov_row = summary_box.row()
+                    ov_row.scale_y = 0.7
+                    ov_row.label(text=f"⚡ {', '.join(other_overrides)}", icon=version_compat.get_icon('MODIFIER'))
+            
+            # Inline Error (if file not saved)
+            validation = ui_helpers.get_queue_validation_summary(context)
+            if validation['errors']:
+                err_row = summary_box.row()
+                err_row.alert = True
+                err_row.label(text=validation['errors'][0], icon=version_compat.get_icon('ERROR'))
+            
+            # === OVERRIDES SECTION (Collapsible) ===
             layout.separator()
             box = layout.box()
             
-            # Header
+            # Get override info for header
             override_info = ui_helpers.get_override_summary(context, job)
+            
+            # Header
             row = box.row(align=True)
             
             # Split Header
@@ -548,15 +514,26 @@ class RenderCuePanelMixin:
                 # Collapsible Summary (Dashboard)
                 if override_info['count'] > 0:
                     summary_box = box.box()
-                    summary_header = summary_box.row()
+                    summary_header = summary_box.row(align=True)
+                    
+                    # Split Header: Toggle (Left) | Apply Button (Right)
+                    split = summary_header.split(factor=0.65)
                 
-                    summary_header.prop(
+                    # Left: Toggle
+                    left = split.row(align=True)
+                    left.alignment = 'LEFT'
+                    left.prop(
                         settings,
                         "ui_show_override_summary",
                         icon=version_compat.get_icon('TRIA_DOWN') if settings.ui_show_override_summary else version_compat.get_icon('TRIA_RIGHT'),
                         text=f"Active Overrides ({override_info['count']})",
                         emboss=False
                     )
+                    
+                    # Right: Apply to All Button
+                    right = split.row(align=True)
+                    right.alignment = 'RIGHT'
+                    right.operator("rendercue.apply_override_to_all", text="Apply to All", icon=version_compat.get_icon('DUPLICATE'))
                     
                     if settings.ui_show_override_summary:
                         summary_col = summary_box.column(align=True)
@@ -949,6 +926,33 @@ class RENDERCUE_MT_apply_to_all_menu(bpy.types.Menu):
         add_item("override_persistent_data", "use_persistent_data", "Persistent Data")
         add_item("override_view_layer", "view_layer", "View Layer")
 
+class RENDERCUE_MT_job_context_menu(bpy.types.Menu):
+    """Right-click context menu for job list items."""
+    bl_label = "Job Options"
+    bl_idname = "RENDERCUE_MT_job_context_menu"
+
+    def draw(self, context):
+        layout = self.layout
+        settings = context.window_manager.rendercue
+        
+        # Move operations
+        layout.operator("rendercue.move_job_to_top", icon=version_compat.get_icon('TRIA_UP_BAR'))
+        layout.operator("rendercue.move_job", text="Move Up", icon=version_compat.get_icon('TRIA_UP')).direction = 'UP'
+        layout.operator("rendercue.move_job", text="Move Down", icon=version_compat.get_icon('TRIA_DOWN')).direction = 'DOWN'
+        layout.operator("rendercue.move_job_to_bottom", icon=version_compat.get_icon('TRIA_DOWN_BAR'))
+        
+        layout.separator()
+        
+        # Scene operations
+        if settings.active_job_index >= 0 and settings.active_job_index < len(settings.jobs):
+            op = layout.operator("rendercue.switch_to_job_scene", text="Switch to Scene", icon=version_compat.get_icon('VIEW3D'))
+            op.index = settings.active_job_index
+        
+        layout.separator()
+        
+        # Remove
+        layout.operator("rendercue.remove_job", text="Remove Job", icon=version_compat.get_icon('TRASH'))
+
 class RENDERCUE_MT_presets_menu(bpy.types.Menu):
     """Menu for RenderCue presets."""
     bl_label = "Presets"
@@ -1024,17 +1028,6 @@ class VIEW3D_PT_render_cue(RenderCuePanelMixin, bpy.types.Panel):
         # Use the same draw method from the mixin
         RenderCuePanelMixin.draw(self, context)
 
-class RENDERCUE_OT_clear_status(bpy.types.Operator):
-    """Clear the last render status message."""
-    bl_idname = "rendercue.clear_status"
-    bl_label = "Clear Status"
-    bl_description = "Clear the last render status message"
-    
-    def execute(self, context):
-        context.window_manager.rendercue.last_render_status = 'NONE'
-        context.window_manager.rendercue.last_render_message = ""
-        return {'FINISHED'}
-
 def draw_status_bar(self, context):
     """Draw RenderCue status in the Blender status bar."""
     settings = context.window_manager.rendercue
@@ -1066,10 +1059,10 @@ def register():
     bpy.utils.register_class(RENDER_UL_render_cue_jobs)
     bpy.utils.register_class(RENDER_PT_render_cue)
     bpy.utils.register_class(RENDERCUE_MT_apply_to_all_menu)
+    bpy.utils.register_class(RENDERCUE_MT_job_context_menu)
     bpy.utils.register_class(RENDERCUE_MT_presets_menu)
     bpy.utils.register_class(RENDER_PT_render_cue_dashboard)
     bpy.utils.register_class(VIEW3D_PT_render_cue)
-    bpy.utils.register_class(RENDERCUE_OT_clear_status)
     
     # Register Status Bar
     bpy.types.STATUSBAR_HT_header.append(draw_status_bar)
@@ -1091,10 +1084,10 @@ def unregister():
     preview_collections.clear()
     
     for cls in (
-        RENDERCUE_OT_clear_status,
         VIEW3D_PT_render_cue,
         RENDER_PT_render_cue_dashboard,
         RENDERCUE_MT_presets_menu,
+        RENDERCUE_MT_job_context_menu,
         RENDERCUE_MT_apply_to_all_menu,
         RENDER_PT_render_cue,
         RENDER_UL_render_cue_jobs,

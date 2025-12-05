@@ -22,7 +22,7 @@ from .notifications import send_webhook, show_notification
 from .constants import (
     MANIFEST_FILENAME, STATUS_FILENAME, PAUSE_SIGNAL_FILENAME,
     STATUS_MESSAGE, STATUS_ETR, STATUS_JOB_INDEX, STATUS_FINISHED_FRAMES,
-    STATUS_TOTAL_FRAMES, STATUS_LAST_FRAME, STATUS_ERROR,
+    STATUS_TOTAL_FRAMES, STATUS_LAST_FRAME, STATUS_ERROR, STATUS_FINISHED,
     STATUS_JOB_STATUSES, STATUS_JOB_PROGRESS, STATUS_JOB_TIMINGS,
     STATUS_TOTAL_JOBS, DEFAULT_PROGRESS_MESSAGE, DEFAULT_ETR,
     STATUS_PAUSED_DURATION
@@ -61,7 +61,6 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
     _background_process = None
     _status_file = None
     _manifest_file = None
-    _last_preview_path = None
     _last_finished_frames = -1
 
     def modal(self, context, event):
@@ -102,6 +101,17 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                                     show_notification("RenderCue Error", status[STATUS_ERROR])
                                 
                                 self._stop = True
+
+                            # Check for Completion (Fix for UI Freeze)
+                            # If worker says it's finished, we trust it and stop waiting for process exit
+                            if status.get(STATUS_FINISHED):
+                                if self._background_process:
+                                    try:
+                                        self._background_process.kill() # Force kill to prevent hangs
+                                    except OSError:
+                                        pass
+                                self.finish(context)
+                                return {'FINISHED'}
 
                             # Update Progress Stats
                             settings = context.window_manager.rendercue
@@ -161,6 +171,12 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                 # Process finished
                 self.finish(context)
                 return {'FINISHED'}
+
+            # Force UI Redraw (Fix for freeze/lag)
+            for window in context.window_manager.windows:
+                for area in window.screen.areas:
+                    if area.type in {'PROPERTIES', 'VIEW_3D'}:
+                        area.tag_redraw()
 
         return {'PASS_THROUGH'}
 
@@ -229,6 +245,11 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         # Build Python expression to run worker directly
         # Add addon directory to sys.path so it can be imported
         addon_dir = os.path.dirname(os.path.dirname(__file__))
+        
+        # Build command: blender -b <file> --python-expr <worker code>
+        cmd = [bpy.app.binary_path, "-b", blend_file]
+            
+        # Worker execution code
         python_code = (
             f"import sys; "
             f"sys.path.insert(0, {repr(addon_dir)}); "
@@ -237,11 +258,8 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             f"worker.run()"
         )
         
-        cmd = [
-            bpy.app.binary_path,
-            "-b", blend_file,
-            "--python-expr", python_code
-        ]
+        cmd.append("--python-expr")
+        cmd.append(python_code)
         
         global _bg_process
         self._background_process = subprocess.Popen(cmd)
@@ -316,10 +334,22 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             # Store completion timestamp for Status Bar
             settings.completion_statusbar_timestamp = time.time()
             
+            # Force UI redraw to show completion state immediately (before popup blocks)
+            for window in context.window_manager.windows:
+                for area in window.screen.areas:
+                    if area.type in {'PROPERTIES', 'VIEW_3D'}:
+                        area.tag_redraw()
+            
             # Handle Completion Feedback (Popup)
-            # Status bar is handled automatically by UI drawing based on timestamp
-            # Popup always appears - user can dismiss manually
-            bpy.ops.rendercue.show_summary_popup('INVOKE_DEFAULT')
+            # Defer slightly to allow UI to redraw first
+            def show_popup():
+                try:
+                    bpy.ops.rendercue.show_summary_popup('INVOKE_DEFAULT')
+                except Exception:
+                    pass
+                return None
+                
+            bpy.app.timers.register(show_popup, first_interval=0.1)
 
         # Desktop Notification
         if prefs.show_notifications:
@@ -344,8 +374,16 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
             
         # Update Status
         if not self._stop: # Only if not cancelled/error
-            context.window_manager.rendercue.last_render_status = 'SUCCESS'
-            context.window_manager.rendercue.last_render_message = "Finished successfully"
+            # Check return code for unexpected crashes
+            if self._background_process and self._background_process.returncode != 0:
+                 context.window_manager.rendercue.last_render_status = 'FAILED'
+                 context.window_manager.rendercue.last_render_message = f"Process crashed (Code {self._background_process.returncode})"
+                 # Override notification if it was generic success
+                 if prefs.show_notifications:
+                     show_notification("RenderCue Failed", f"Background process crashed with code {self._background_process.returncode}")
+            else:
+                context.window_manager.rendercue.last_render_status = 'SUCCESS'
+                context.window_manager.rendercue.last_render_message = "Finished successfully"
 
     def update_preview(self, context, filepath):
         """Update the preview image in the UI.
@@ -396,7 +434,7 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
         # Force UI redraw
         for window in context.window_manager.windows:
             for area in window.screen.areas:
-                if area.type == 'PROPERTIES':
+                if area.type in {'PROPERTIES', 'VIEW_3D'}:
                     area.tag_redraw()
 
 def register():

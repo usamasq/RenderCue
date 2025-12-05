@@ -252,14 +252,16 @@ def get_override_summary(context, job):
     return {'count': active_count, 'groups': groups_data}
 
 def get_scene_statistics(context):
-    """Calculate scene availability statistics.
+    """Calculate scene availability and queue health statistics.
     
     Returns:
         dict: {
-            'total': int,           # Total scenes in file
-            'with_cameras': int,    # Scenes that have a camera
-            'available': int,       # Scenes that can be added to queue
-            'in_queue': int        # Scenes already in queue
+            'total': int,              # Total scenes in file
+            'with_cameras': int,       # Scenes that have a camera
+            'available': int,          # Scenes that can be added to queue
+            'in_queue': int,           # Scenes already in queue
+            'invalid_jobs': int,       # Jobs missing camera
+            'invalid_job_names': list  # Names of invalid jobs
         }
     """
     settings = context.window_manager.rendercue
@@ -273,11 +275,23 @@ def get_scene_statistics(context):
     )
     in_queue = len(existing_scenes)
     
+    # Check for invalid jobs in queue (no camera)
+    invalid_job_names = []
+    for job in settings.jobs:
+        if job.scene:
+            # Job is valid if: scene has camera OR job has camera override
+            has_camera = job.scene.camera is not None
+            has_override = job.override_camera and job.camera is not None
+            if not has_camera and not has_override:
+                invalid_job_names.append(job.scene.name)
+    
     return {
         'total': total,
         'with_cameras': with_cameras,
         'available': available,
-        'in_queue': in_queue
+        'in_queue': in_queue,
+        'invalid_jobs': len(invalid_job_names),
+        'invalid_job_names': invalid_job_names
     }
 
 def get_queue_validation_summary(context):
