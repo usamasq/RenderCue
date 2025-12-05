@@ -296,6 +296,8 @@ class RenderCuePanelMixin:
         col.separator()
         col.operator("rendercue.move_job", icon=version_compat.get_icon('TRIA_UP'), text="").direction = 'UP'
         col.operator("rendercue.move_job", icon=version_compat.get_icon('TRIA_DOWN'), text="").direction = 'DOWN'
+        col.separator()
+        col.menu("RENDERCUE_MT_job_context_menu", icon=version_compat.get_icon('DOWNARROW_HLT'), text="")
         
         if not settings.jobs:
             # Helper message for empty state
