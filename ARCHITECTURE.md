@@ -53,7 +53,7 @@ We support Blender 4.2 through 5.0+.
 - **Adding a new Override**:
 
   1. Add the property to `RenderCueJob` in `properties.py`.
-  2. Add the UI control in `ui.py` (inside `draw_job_details`).
+  2. Add the UI control in `ui.py` (inside `draw_main_ui`).
   3. Handle the override logic in `core.py` (inside `BackgroundWorker.process_job`).
 
 - **Adding a new Notification Channel**:

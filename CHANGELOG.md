@@ -2,6 +2,22 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.2] - 2025-12-05
+
+### Added
+
+- **UI Redesign**: Simplified 3-section layout (List, Overrides, Render) for better clarity.
+- **Scene Summary Card**: New panel below the list showing engine, resolution, samples, and active overrides.
+- **Context Menus**: Right-click job list for Move, Switch Scene, and Remove options.
+- **Move to Top/Bottom**: New operators to quickly organize the queue.
+- **Inline Validation**: Invalid jobs (e.g., missing cameras) are visually flagged with specific error messages.
+
+### Changed
+
+- **Queue List**: Removed redundant columns; now shows simplified Status • Name • [Switch] • Frames.
+- **Validation**: Replaced "All scenes with camera" generic message with per-job validation warnings.
+- **Global Output**: Collapsed by default to reduce clutter.
+
 ## [1.1.0] - 2025-12-04
 
 ### Added

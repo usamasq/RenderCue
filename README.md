@@ -6,7 +6,7 @@
 
 ![Blender Version](https://img.shields.io/badge/Blender-4.2%20--%205.0%2B-orange?logo=blender)
 [![License](https://img.shields.io/badge/License-GPL%20v3-blue.svg)](LICENSE)
-[![Version](https://img.shields.io/badge/Version-1.1.1-green)](CHANGELOG.md)
+[![Version](https://img.shields.io/badge/Version-1.1.2-green)](CHANGELOG.md)
 
 RenderCue is the ultimate batch rendering solution for Blender, designed to bridge the gap between Scene Management and background execution. It provides a streamlined, professional interface to queue multiple scenes, override their settings per-job, and execute renders in the background—keeping your UI responsive so you can keep working.
 
@@ -23,6 +23,8 @@ Built for modern pipelines, RenderCue fully supports **Blender 4.2 LTS through 5
   - **Format**: Change file format (PNG, EXR, JPEG, etc.) per job.
   - **Render Engine**: Switch between Cycles, Eevee, and Workbench.
   - **Quality**: Override Samples and Cycles-specific settings (Denoising, Device, Time Limit, Persistent Data).
+- **Context Menus**: Right-click any job to duplicate, remove, or jump to its scene.
+- **Smart Validation**: Inline warnings alert you to potential issues (e.g., missing cameras) before you render.
 - **Pause & Resume**: Pause renders at any time. **New:** You can now even close Blender and resume your render queue later from where it left off.
 - **Presets System**: Save your entire queue configuration to a JSON file to load later, or share between files.
 - **Notifications**:
@@ -43,17 +45,21 @@ Built for modern pipelines, RenderCue fully supports **Blender 4.2 LTS through 5
 ### 1. Building the Queue
 
 - Open the **RenderCue** panel in the Render Properties tab or N-Panel.
-- Click **Add Scene** or **Add All Scenes** to populate your queue.
-- **Queue Health**: Check the panel below the list for any warnings or errors (marked in red/orange).
+- Click **Add All Scenes** or use the **[ + ]** button to populate your queue.
+- **Queue Health**: Check for inline warnings (e.g., "Scene has no camera") which will appear directly below the list or on specific jobs.
+- **Reordering**: Use the Arrow keys or right-click context menu (Move to Top/Bottom) to organize your sequence.
 
 ![Building the Queue](assets/Features1.jpg)
 
 ### 2. Configuring Jobs
 
-- **Global Output**: Use the "Global Output" section to set a base folder for all jobs.
-- **Overrides**: Select a job and expand the **Overrides** section.
+### 2. Configuring Jobs
+
+- **Scene Summary**: Select a job to view its details (Engine, Resolution, Samples) in the summary card below the list.
+- **Overrides**: Expand the **Overides** section to change settings per-job:
   - Enable specific overrides like **Resolution**, **Frame Range**, or **Camera**.
-  - **Tip**: Use the "Apply to All" button (⧉) next to any setting to instantly propagate it to every job in the queue.
+  - **Tip**: Use the "Apply to All" button next to any setting to instantly propagate it to every job in the queue.
+- **Quick Switch**: Click the [👁] (eye) icon in the list or summary to instantly jump to that scene in the viewport.
 
 ![Configuring Jobs](assets/Features2.jpg)
 
