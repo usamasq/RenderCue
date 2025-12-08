@@ -102,17 +102,6 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                                 
                                 self._stop = True
 
-                            # Check for Completion (Fix for UI Freeze)
-                            # If worker says it's finished, we trust it and stop waiting for process exit
-                            if status.get(STATUS_FINISHED):
-                                if self._background_process:
-                                    try:
-                                        self._background_process.kill() # Force kill to prevent hangs
-                                    except OSError:
-                                        pass
-                                self.finish(context)
-                                return {'FINISHED'}
-
                             # Update Progress Stats
                             settings = context.window_manager.rendercue
                             
@@ -163,6 +152,17 @@ class RENDERCUE_OT_batch_render(bpy.types.Operator):
                             if last_frame_path and current_finished > self._last_finished_frames:
                                 self._last_finished_frames = current_finished
                                 self.update_preview(context, last_frame_path)
+
+                            # Check for Completion (Fix for UI Freeze)
+                            # If worker says it's finished, we trust it and stop waiting for process exit
+                            if status.get(STATUS_FINISHED):
+                                if self._background_process:
+                                    try:
+                                        self._background_process.kill() # Force kill to prevent hangs
+                                    except OSError:
+                                        pass
+                                self.finish(context)
+                                return {'FINISHED'}
                     except (OSError, json.JSONDecodeError):
                         # File might be locked or partially written, just skip this update
                         pass
