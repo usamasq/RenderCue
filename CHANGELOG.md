@@ -2,6 +2,12 @@
 
 All notable changes to this project will be documented in this file.
 
+## [1.1.3] - 2025-12-09
+
+### Fixed
+
+- **Render Queue Status**: Fixed a bug where the Render Queue status was not updating correctly.
+
 ## [1.1.2] - 2025-12-05
 
 ### Added
